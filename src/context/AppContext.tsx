@@ -583,7 +583,11 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       clearInterval(intervalId);
       appStateSubscription.remove();
     };
-  }, [deps.authService, deps.profileRepository, loadEventsForToken, localProfileSnapshot, state.session.pendingSessionId, state.session.status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- state.session.status is intentionally
+    // excluded: including it causes the effect to restart (and cancel in-flight requests) when
+    // dispatch({ type: 'auth-exchanging' }) fires mid-exchange. The guard on line 476 already
+    // prevents the effect body from running in the wrong status.
+  }, [deps.authService, deps.profileRepository, loadEventsForToken, localProfileSnapshot, state.session.pendingSessionId]);
 
   const signIn = useCallback(async () => {
     if (Platform.OS === 'web') {
