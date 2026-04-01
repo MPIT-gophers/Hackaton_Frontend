@@ -32,16 +32,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     height: 25,
     justifyContent: 'flex-end',
-    width: 60
+    width: 50
   },
   trackOff: {
     justifyContent: 'flex-start'
   },
   thumb: {
     backgroundColor: theme.colors.primary,
-    borderRadius: 12,
+    borderRadius: 12.5,
     height: 25,
-    width: 30
+    width: 25
   },
   thumbOff: {
     backgroundColor: theme.colors.primarySoft

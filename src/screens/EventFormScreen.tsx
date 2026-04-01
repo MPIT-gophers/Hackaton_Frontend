@@ -43,16 +43,13 @@ export function EventFormScreen({ navigation }: EventFormScreenProps) {
             testID="field-city"
             value={state.draft.city}
           />
-          <View style={styles.dateFieldGroup}>
-            <RoundedInput
-              invalid={Boolean(state.draftErrors.date)}
-              onChangeText={(value) => actions.updateDraftField('date', value)}
-              placeholder="Укажите дату"
-              testID="field-date"
-              value={state.draft.date}
-            />
-            {state.draftErrors.date ? <Text style={styles.dateErrorText}>Введите корректную дату не раньше сегодняшнего дня</Text> : null}
-          </View>
+          <RoundedInput
+            invalid={Boolean(state.draftErrors.date)}
+            onChangeText={(value) => actions.updateDraftField('date', value)}
+            placeholder="Укажите дату"
+            testID="field-date"
+            value={state.draft.date}
+          />
           <RoundedInput
             bright
             invalid={Boolean(state.draftErrors.budget)}
@@ -88,12 +85,7 @@ export function EventFormScreen({ navigation }: EventFormScreenProps) {
         </View>
 
         <Text style={styles.sectionTitle}>Пожелания</Text>
-        <RoundedTextArea
-          onChangeText={(value) => actions.updateDraftField('wishes', value)}
-          placeholder="Опишите атмосферу, кухню или формат встречи"
-          testID="field-wishes"
-          value={state.draft.wishes}
-        />
+        <RoundedTextArea onChangeText={(value) => actions.updateDraftField('wishes', value)} placeholder="" testID="field-wishes" value={state.draft.wishes} />
 
         <PrimaryButton onPress={handleContinue} style={styles.button} testID="event-form-continue-button" title="Продолжить" />
       </ScreenContainer>
@@ -107,34 +99,24 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.text,
-    fontFamily: theme.typography.semiBold,
+    fontFamily: theme.typography.medium,
     fontSize: 20,
     lineHeight: 24,
-    marginTop: 24
+    marginTop: 30
   },
   fields: {
     gap: theme.spacing.fieldGap,
-    marginTop: 24
-  },
-  dateFieldGroup: {
-    gap: 6
-  },
-  dateErrorText: {
-    color: theme.colors.danger,
-    fontFamily: theme.typography.medium,
-    fontSize: 13,
-    lineHeight: 16,
-    paddingHorizontal: 4
+    marginTop: 15
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontFamily: theme.typography.semiBold,
+    fontFamily: theme.typography.medium,
     fontSize: 20,
     lineHeight: 24,
-    marginBottom: 10,
-    marginTop: 10
+    marginBottom: 15,
+    marginTop: 15
   },
   button: {
-    marginTop: 10
+    marginTop: 30
   }
 });

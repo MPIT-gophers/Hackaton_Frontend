@@ -51,28 +51,30 @@ const styles = StyleSheet.create({
   name: {
     bottom: 15,
     color: theme.colors.surface,
-    fontFamily: theme.typography.semiBold,
+    fontFamily: theme.typography.medium,
     fontSize: 20,
     left: 15,
     lineHeight: 24,
     position: 'absolute'
   },
   body: {
-    padding: 15
+    paddingHorizontal: 15,
+    paddingBottom: 20,
+    paddingTop: 15
   },
   summary: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.medium,
     fontSize: 17,
-    lineHeight: 23,
+    lineHeight: 22,
     minHeight: 46
   },
   ratingRow: {
     alignItems: 'center',
     alignSelf: 'flex-end',
     flexDirection: 'row',
-    gap: 5,
-    marginTop: 15
+    gap: 2,
+    marginTop: 10
   },
   rating: {
     color: theme.colors.star,

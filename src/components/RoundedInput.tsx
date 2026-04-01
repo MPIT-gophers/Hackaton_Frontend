@@ -42,9 +42,11 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.xl,
-    minHeight: 48,
+    justifyContent: 'center',
+    minHeight: 50,
     paddingHorizontal: 15,
-    paddingVertical: 12
+    paddingVertical: 13,
+    ...theme.shadows.card
   },
   bright: {
     backgroundColor: theme.colors.surfaceBright
@@ -53,7 +55,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.danger,
     borderWidth: 2,
     paddingHorizontal: 13,
-    paddingVertical: 10
+    paddingVertical: 11
   },
   input: {
     color: theme.colors.muted,

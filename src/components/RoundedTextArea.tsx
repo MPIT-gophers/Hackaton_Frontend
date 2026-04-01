@@ -32,16 +32,17 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.surfaceBright,
     borderRadius: theme.radii.xl,
-    minHeight: 166,
+    minHeight: 131,
     paddingHorizontal: 15,
-    paddingVertical: 16
+    paddingVertical: 16,
+    ...theme.shadows.card
   },
   input: {
     color: theme.colors.muted,
     fontFamily: theme.typography.regular,
     fontSize: 17,
     lineHeight: 22,
-    minHeight: 134,
+    minHeight: 99,
     padding: 0
   },
   filledInput: {

@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { EventCard } from '../components/EventCard';
@@ -7,13 +7,14 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { MascotShadowIcon, ProfileOutlineIcon } from '../components/icons';
 import { useAppContext } from '../context/AppContext';
 import { imageAssets } from '../data/assets';
-import { theme } from '../theme';
 import { RootStackParamList } from '../navigation/types';
+import { theme } from '../theme';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const { state, actions } = useAppContext();
+  const venueMap = new Map(state.venues.map((venue) => [venue.id, venue]));
 
   const openProfile = () => navigation.navigate('Profile');
   const openForm = () => {
@@ -22,31 +23,37 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   return (
-    <ScreenContainer scrollable>
+    <ScreenContainer>
       <Pressable accessibilityRole="button" onPress={openProfile} style={styles.profileButton} testID="home-profile-button">
         <ProfileOutlineIcon />
       </Pressable>
 
       {state.events.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyHeadline}>У вас на данный момент{`
-`}нет мероприятий</Text>
-          <PrimaryButton onPress={openForm} style={styles.emptyButton} testID="home-create-button" title="Создать мероприятие!" />
-          <View style={styles.mascotWrap}>
-            <View style={styles.shadowWrap}>
-              <MascotShadowIcon />
+          <View style={styles.emptyHero}>
+            <Text style={styles.emptyHeadline}>У вас на данный момент{`\n`}нет мероприятий</Text>
+
+            <View style={styles.mascotWrap}>
+              <View style={styles.shadowWrap}>
+                <MascotShadowIcon />
+              </View>
+              <Image source={imageAssets.mascot} style={styles.mascotImage} />
             </View>
-            <Image source={imageAssets.mascot} style={styles.mascotImage} />
           </View>
+
+          <PrimaryButton onPress={openForm} style={styles.emptyButton} testID="home-create-button" title="Создать мероприятие!" />
         </View>
       ) : (
         <View style={styles.filledWrap}>
-          <View style={styles.eventsList}>
-            {state.events.map((event) => (
-              <EventCard event={event} key={event.id} />
-            ))}
-          </View>
-          <View style={styles.eventsSpacer} />
+          <ScrollView contentContainerStyle={styles.eventsList} showsVerticalScrollIndicator={false}>
+            {state.events.map((event) => {
+              const venue = venueMap.get(event.venueId);
+
+              return venue ? <EventCard event={event} key={event.id} venue={venue} /> : null;
+            })}
+            <View style={styles.eventsBottomSpacer} />
+          </ScrollView>
+
           <PrimaryButton onPress={openForm} style={styles.addButton} title="Добавить мероприятие!" />
         </View>
       )}
@@ -59,45 +66,48 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start'
   },
   emptyWrap: {
+    flex: 1,
+    justifyContent: 'space-between'
+  },
+  emptyHero: {
     alignItems: 'center',
-    flex: 1
+    marginTop: 165
   },
   emptyHeadline: {
     color: theme.colors.text,
-    fontFamily: theme.typography.semiBold,
-    fontSize: 20,
-    lineHeight: 24,
-    marginTop: 106,
+    fontFamily: theme.typography.medium,
+    fontSize: 26,
+    lineHeight: 31,
     textAlign: 'center'
   },
   emptyButton: {
-    marginTop: 107
+    marginTop: 24
   },
   mascotWrap: {
     alignItems: 'center',
-    marginTop: 30,
+    marginTop: 42,
     width: '100%'
   },
   shadowWrap: {
-    marginBottom: -30,
-    transform: [{ scale: 0.94 }]
+    marginBottom: -28,
+    transform: [{ scale: 0.84 }]
   },
   mascotImage: {
-    height: 213,
-    width: 194
+    height: 188,
+    width: 190
   },
   filledWrap: {
     flex: 1,
     marginTop: 30
   },
   eventsList: {
-    gap: 15
+    gap: 15,
+    paddingBottom: 20
   },
-  eventsSpacer: {
-    flex: 1,
-    minHeight: 28
+  eventsBottomSpacer: {
+    height: 106
   },
   addButton: {
-    marginTop: 28
+    marginTop: 12
   }
 });

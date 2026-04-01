@@ -14,6 +14,31 @@ import { getSelectedVenue } from '../utils/venueRanking';
 
 type VenueDetailsScreenProps = NativeStackScreenProps<RootStackParamList, 'VenueDetails'>;
 
+type ParsedSchedule = {
+  title: string;
+  rows: Array<{ label: string; value: string }>;
+};
+
+function parseVenueSchedule(schedule: string): ParsedSchedule {
+  const [title = 'Режим работы:', ...rawRows] = schedule.split('\n').map((line) => line.trim()).filter(Boolean);
+
+  return {
+    title,
+    rows: rawRows.map((line) => {
+      const matchedParts = line.match(/^(.*?)\s{2,}(\S.*)$/);
+
+      if (!matchedParts) {
+        return { label: line, value: '' };
+      }
+
+      return {
+        label: matchedParts[1].trim(),
+        value: matchedParts[2].trim()
+      };
+    })
+  };
+}
+
 export function VenueDetailsScreen({ navigation }: VenueDetailsScreenProps) {
   const { state } = useAppContext();
   const venue = getSelectedVenue(state.venues, state.draft, state.selectedVenueId);
@@ -21,6 +46,8 @@ export function VenueDetailsScreen({ navigation }: VenueDetailsScreenProps) {
   if (!venue) {
     return null;
   }
+
+  const schedule = parseVenueSchedule(venue.schedule);
 
   return (
     <ScreenContainer scrollable>
@@ -34,9 +61,21 @@ export function VenueDetailsScreen({ navigation }: VenueDetailsScreenProps) {
 
         <View style={styles.body}>
           <Text style={styles.summary}>{venue.summary}</Text>
-          <Text style={styles.addressLine}>{venue.addressLine}</Text>
-          <Text style={styles.address}>{venue.address}</Text>
-          <Text style={styles.schedule}>{venue.schedule}</Text>
+
+          <View style={styles.addressBlock}>
+            <Text style={styles.addressLine}>{venue.addressLine}</Text>
+            <Text style={styles.address}>{venue.address}</Text>
+          </View>
+
+          <View style={styles.scheduleBlock}>
+            <Text style={styles.scheduleTitle}>{schedule.title}</Text>
+            {schedule.rows.map((row) => (
+              <View key={`${row.label}-${row.value}`} style={styles.scheduleRow}>
+                <Text style={styles.scheduleLabel}>{row.label}</Text>
+                <Text style={styles.scheduleValue}>{row.value}</Text>
+              </View>
+            ))}
+          </View>
 
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>Средний чек:</Text>
@@ -57,8 +96,9 @@ export function VenueDetailsScreen({ navigation }: VenueDetailsScreenProps) {
       <View style={styles.bookingCard}>
         <Text style={styles.bookingLabel}>Дата события</Text>
         <Text style={styles.bookingDate}>{formatDateDisplay(state.draft.date) || '5 апреля 2026 г.'}</Text>
-        <PrimaryButton onPress={() => navigation.navigate('BookingConfirm')} title="Забронировать" />
       </View>
+
+      <PrimaryButton onPress={() => navigation.navigate('EventSummary')} style={styles.button} testID="venue-details-book-button" title="Забронировать" />
     </ScreenContainer>
   );
 }
@@ -68,7 +108,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.xl,
     marginTop: 30,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    ...theme.shadows.card
   },
   media: {
     height: 195,
@@ -80,8 +121,8 @@ const styles = StyleSheet.create({
   },
   name: {
     bottom: 15,
-    color: theme.colors.surface,
-    fontFamily: theme.typography.semiBold,
+    color: theme.colors.surfaceBright,
+    fontFamily: theme.typography.medium,
     fontSize: 20,
     left: 15,
     lineHeight: 24,
@@ -91,46 +132,68 @@ const styles = StyleSheet.create({
     padding: 15
   },
   summary: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.medium,
     fontSize: 17,
-    lineHeight: 23,
+    lineHeight: 22,
     minHeight: 33
   },
+  addressBlock: {
+    marginTop: 15
+  },
   addressLine: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.medium,
     fontSize: 17,
-    lineHeight: 22,
-    marginTop: 18
+    lineHeight: 22
   },
   address: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.regular,
     fontSize: 14,
-    lineHeight: 19,
-    marginTop: 4
+    lineHeight: 18,
+    marginTop: 10
   },
-  schedule: {
-    color: '#000000',
+  scheduleBlock: {
+    marginTop: 15
+  },
+  scheduleTitle: {
+    color: theme.colors.text,
     fontFamily: theme.typography.medium,
     fontSize: 17,
     lineHeight: 22,
-    marginTop: 15
+    marginBottom: 2
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  scheduleLabel: {
+    color: theme.colors.text,
+    fontFamily: theme.typography.medium,
+    fontSize: 17,
+    lineHeight: 22
+  },
+  scheduleValue: {
+    color: theme.colors.text,
+    fontFamily: theme.typography.medium,
+    fontSize: 17,
+    lineHeight: 22,
+    textAlign: 'right'
   },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12
+    marginTop: 8
   },
   metaLabel: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.medium,
     fontSize: 17,
     lineHeight: 22
   },
   metaValue: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.medium,
     fontSize: 17,
     lineHeight: 22
@@ -139,8 +202,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-end',
     flexDirection: 'row',
-    gap: 5,
-    marginTop: 15
+    gap: 2,
+    marginTop: 12
   },
   rating: {
     color: theme.colors.star,
@@ -151,22 +214,25 @@ const styles = StyleSheet.create({
   bookingCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.xl,
-    marginTop: 15,
+    marginTop: 24,
+    minHeight: 70,
     padding: 15,
     ...theme.shadows.card
   },
   bookingLabel: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.regular,
     fontSize: 17,
     lineHeight: 22
   },
   bookingDate: {
-    color: '#000000',
-    fontFamily: theme.typography.semiBold,
+    color: theme.colors.text,
+    fontFamily: theme.typography.medium,
     fontSize: 20,
     lineHeight: 24,
-    marginBottom: 15,
     marginTop: 15
+  },
+  button: {
+    marginTop: 30
   }
 });

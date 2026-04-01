@@ -5,5 +5,5 @@ export type RootStackParamList = {
   EventForm: undefined;
   VenuesList: undefined;
   VenueDetails: undefined;
-  BookingConfirm: undefined;
+  EventSummary: undefined;
 };
