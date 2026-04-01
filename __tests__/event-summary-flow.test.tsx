@@ -122,9 +122,6 @@ describe('event summary flow', () => {
       expect(screen.getByText('events:1')).toBeTruthy();
     });
 
-    expect(navigation.reset).toHaveBeenCalledWith({
-      index: 0,
-      routes: [{ name: 'Home' }]
-    });
+    expect(navigation.goBack).toHaveBeenCalled();
   });
 });

@@ -14,10 +14,22 @@ import { getSelectedVenue } from '../utils/venueRanking';
 
 type EventSummaryScreenProps = NativeStackScreenProps<RootStackParamList, 'EventSummary'>;
 
+const SUMMARY_CARD_HEIGHT = 406;
+const SUMMARY_MEDIA_HEIGHT = 190;
+
 type SummaryActionButtonProps = {
   label: string;
   onPress: () => void;
   testID?: string;
+};
+
+type VenueSummaryCardProps = {
+  venueName: string;
+  venueImage: ReturnType<typeof getImageAsset>;
+  bookingDate: string;
+  addressLine: string;
+  address: string;
+  rating: string;
 };
 
 function SummaryActionButton({ label, onPress, testID }: SummaryActionButtonProps) {
@@ -25,6 +37,41 @@ function SummaryActionButton({ label, onPress, testID }: SummaryActionButtonProp
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.actionButton, pressed ? styles.actionButtonPressed : undefined]} testID={testID}>
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
+  );
+}
+
+function VenueSummaryCard({ venueName, venueImage, bookingDate, addressLine, address, rating }: VenueSummaryCardProps) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.media}>
+        <Image source={venueImage} style={styles.image} />
+        <View style={styles.nameBadge}>
+          <Text style={styles.name}>{venueName}</Text>
+        </View>
+      </View>
+
+      <View style={styles.body}>
+        <View>
+          <Text style={styles.bookingText}>
+            Вы забронировали на:{`\n`}
+            {bookingDate}
+            {`\n`}14:00
+          </Text>
+
+          <View style={styles.addressBlock}>
+            <Text style={styles.addressLine}>{addressLine}</Text>
+            <Text style={styles.address}>{address}</Text>
+          </View>
+
+          <Text style={styles.link}>Перейти по ссылке</Text>
+        </View>
+
+        <View style={styles.ratingRow}>
+          <Text style={styles.rating}>{rating}</Text>
+          <StarIcon />
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -43,38 +90,20 @@ export function EventSummaryScreen({ navigation }: EventSummaryScreenProps) {
       return;
     }
 
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Home' }]
-    });
+    navigation.goBack();
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer scrollable>
       <HeaderBack onPress={navigation.goBack} title="Страница мероприятия" />
-
-      <View style={styles.card}>
-        <View style={styles.media}>
-          <Image source={getImageAsset(venue.imageKey)} style={styles.image} />
-          <Text style={styles.name}>{venue.name}</Text>
-        </View>
-
-        <View style={styles.body}>
-          <Text style={styles.bookingText}>Вы забронировали на:{`\n`}{formatDateDisplay(state.draft.date) || '5 апреля 2026 г.'}{`\n`}14:00</Text>
-
-          <View style={styles.addressBlock}>
-            <Text style={styles.addressLine}>{venue.addressLine}</Text>
-            <Text style={styles.address}>{venue.address}</Text>
-          </View>
-
-          <Text style={styles.link}>Перейти по ссылке</Text>
-
-          <View style={styles.ratingRow}>
-            <Text style={styles.rating}>{venue.rating}</Text>
-            <StarIcon />
-          </View>
-        </View>
-      </View>
+      <VenueSummaryCard
+        address={venue.address}
+        addressLine={venue.addressLine}
+        bookingDate={formatDateDisplay(state.draft.date) || '5 апреля 2026 г.'}
+        rating={venue.rating}
+        venueImage={getImageAsset(venue.imageKey)}
+        venueName={venue.name}
+      />
 
       <View style={styles.actions}>
         <SummaryActionButton label="Поменять заведение" onPress={() => navigation.navigate('VenuesList')} testID="event-summary-change-venue-button" />
@@ -95,28 +124,40 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.xl,
-    marginTop: 30,
+    height: SUMMARY_CARD_HEIGHT,
+    marginTop: 34,
     overflow: 'hidden',
     ...theme.shadows.card
   },
   media: {
-    height: 190,
+    height: SUMMARY_MEDIA_HEIGHT,
     overflow: 'hidden'
   },
   image: {
     height: '100%',
     width: '100%'
   },
+  nameBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
+    borderTopRightRadius: theme.radii.md,
+    bottom: 0,
+    minHeight: 32,
+    justifyContent: 'center',
+    left: 0,
+    paddingHorizontal: 15,
+    position: 'absolute'
+  },
   name: {
-    bottom: 15,
     color: theme.colors.surfaceBright,
     fontFamily: theme.typography.medium,
     fontSize: 20,
-    left: 15,
     lineHeight: 24,
-    position: 'absolute'
+    textAlign: 'left'
   },
   body: {
+    flex: 1,
+    justifyContent: 'space-between',
     padding: 15
   },
   bookingText: {
@@ -152,8 +193,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-end',
     flexDirection: 'row',
-    gap: 2,
-    marginTop: 12
+    gap: 2
   },
   rating: {
     color: theme.colors.star,
@@ -186,6 +226,9 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   saveButton: {
-    marginTop: 30
+    marginTop: 30,
+    minHeight: 62,
+    paddingHorizontal: 10,
+    paddingVertical: 18
   }
 });
