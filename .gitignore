@@ -1,8 +1,49 @@
+# Dependencies
 node_modules/
+
+# Expo
 .expo/
 dist/
 web-build/
-coverage/
+.expo-shared/
+
+# EAS / local credentials (never commit)
+credentials.json
+eas-credentials.json
+
+# Logs & package manager debug
 *.log
 npm-debug.*
-.expo-shared/
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment (commit .env.example if you add one)
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+
+# Metro
+.metro-health-check*
+
+# Native signing & backups (after prebuild / bare workflow)
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
