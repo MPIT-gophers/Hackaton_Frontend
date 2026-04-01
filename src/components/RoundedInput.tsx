@@ -7,7 +7,7 @@ type RoundedInputProps = {
   value: string;
   onChangeText: (value: string) => void;
   invalid?: boolean;
-  keyboardType?: 'default' | 'numeric';
+  keyboardType?: 'default' | 'numeric' | 'phone-pad';
   bright?: boolean;
   testID?: string;
 };
