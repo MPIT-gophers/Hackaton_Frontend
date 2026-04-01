@@ -35,14 +35,49 @@ export type BookedEvent = {
   venueName: string;
 };
 
+export type AuthStatus = 'anonymous' | 'starting' | 'waiting_confirmation' | 'exchanging' | 'authenticated' | 'error';
+
+export type BackendUser = {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AuthTokens = {
+  accessToken: string;
+  tokenType: 'Bearer';
+  expiresAt: string;
+};
+
+export type PendingAuthSession = {
+  sessionId: string;
+  maxLink: string;
+  expiresAt: string;
+};
+
+export type StoredAuthSession = {
+  tokens: AuthTokens;
+  user: BackendUser;
+};
+
 export type UserProfile = {
-  name: string;
+  fullName: string;
+  phone: string;
   about: string;
   notificationsEnabled: boolean;
 };
 
 export type AppSession = {
   isAuthenticated: boolean;
+  status: AuthStatus;
+  accessToken: string | null;
+  tokenType: 'Bearer' | null;
+  expiresAt: string | null;
+  pendingSessionId: string | null;
+  pendingMaxLink: string | null;
+  errorMessage: string | null;
 };
 
 export type VenueQuery = Pick<EventDraft, 'placeType' | 'location' | 'wishes'>;
