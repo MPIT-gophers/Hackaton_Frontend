@@ -47,6 +47,8 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         <ProfileAvatar />
       </View>
 
+      <Text style={styles.name}>{fullNameDraft || 'USER NAME'}</Text>
+
       <View style={styles.stack}>
         <RoundedInput bright onChangeText={setFullNameDraft} placeholder="Ваше имя" testID="profile-full-name-input" value={fullNameDraft} />
         <RoundedInput
@@ -59,11 +61,11 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         />
 
         <View style={styles.toggleField}>
-          <Text style={styles.toggleLabel}>Уведомления</Text>
+          <Text style={styles.toggleLabel}>Уведомление</Text>
           <Toggle onPress={actions.toggleNotifications} testID="profile-notifications-toggle" value={state.profile.notificationsEnabled} />
         </View>
 
-        <RoundedInput bright onChangeText={actions.updateAbout} placeholder="Расскажите о себе" testID="profile-about-input" value={state.profile.about} />
+        <RoundedInput bright onChangeText={actions.updateAbout} placeholder="Расскажи о себе" testID="profile-about-input" value={state.profile.about} />
 
         {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
 
@@ -78,9 +80,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 30
   },
+  name: {
+    color: theme.colors.text,
+    fontFamily: theme.typography.medium,
+    fontSize: 26,
+    lineHeight: 31,
+    marginTop: 30,
+    textAlign: 'center'
+  },
   stack: {
     gap: 10,
-    marginTop: 30
+    marginTop: 15
   },
   toggleField: {
     alignItems: 'center',
@@ -88,9 +98,10 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xl,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 48,
+    minHeight: 50,
     paddingHorizontal: 15,
-    paddingVertical: 11
+    paddingVertical: 13,
+    ...theme.shadows.card
   },
   toggleLabel: {
     color: theme.colors.text,

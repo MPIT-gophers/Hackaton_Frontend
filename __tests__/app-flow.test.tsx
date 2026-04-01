@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppProvider, createInitialState, useAppContext } from '../src/context/AppContext';
 import { PendingAuthSession, StoredAuthSession } from '../src/domain/types';
+import { VENUES } from '../src/data/venues';
 import { AuthService } from '../src/services/authService';
 import { AuthScreen } from '../src/screens/AuthScreen';
 import { HomeScreen } from '../src/screens/HomeScreen';
@@ -73,6 +74,9 @@ describe('screen flow', () => {
         </AppProvider>
       </SafeAreaProvider>
     );
+
+    expect(screen.getByText('Ввод параметров события')).toBeTruthy();
+    expect(screen.queryByText('Диалог с AI-агентом')).toBeNull();
 
     fireEvent.press(screen.getByTestId('auth-button'));
 
@@ -150,7 +154,14 @@ describe('screen flow', () => {
         <AppProvider
           initialState={createInitialState({
             isHydrated: true,
-            session: { isAuthenticated: true, status: 'authenticated', accessToken: 'token-1', tokenType: 'Bearer', expiresAt: '2099-01-01T00:00:00Z' }
+            session: {
+              isAuthenticated: true,
+              status: 'authenticated',
+              accessToken: 'token-1',
+              tokenType: 'Bearer',
+              expiresAt: '2099-01-01T00:00:00Z'
+            },
+            venues: VENUES
           })}
           skipHydration
         >
@@ -169,7 +180,14 @@ describe('screen flow', () => {
         <AppProvider
           initialState={createInitialState({
             isHydrated: true,
-            session: { isAuthenticated: true, status: 'authenticated', accessToken: 'token-1', tokenType: 'Bearer', expiresAt: '2099-01-01T00:00:00Z' },
+            session: {
+              isAuthenticated: true,
+              status: 'authenticated',
+              accessToken: 'token-1',
+              tokenType: 'Bearer',
+              expiresAt: '2099-01-01T00:00:00Z'
+            },
+            venues: VENUES,
             events: [
               {
                 id: 'event-1',
@@ -177,7 +195,7 @@ describe('screen flow', () => {
                 date: '5 апреля 2026 г.',
                 time: '14:00',
                 venueId: 'vinzavod',
-                venueName: 'Винзавод'
+                venueName: 'Ритц'
               }
             ]
           })}
@@ -188,6 +206,7 @@ describe('screen flow', () => {
       </SafeAreaProvider>
     );
 
+    expect(screen.getByText('Ритц')).toBeTruthy();
     expect(screen.getByText('День рождение')).toBeTruthy();
   });
 });

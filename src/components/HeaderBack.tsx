@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.text,
-    fontFamily: theme.typography.semiBold,
+    fontFamily: theme.typography.medium,
     fontSize: 17,
     lineHeight: 22
   }

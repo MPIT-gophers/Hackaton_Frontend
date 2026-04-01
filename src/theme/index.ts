@@ -9,9 +9,10 @@ export const theme = {
     surfaceBright: '#FFFFFF',
     text: '#1E1E1E',
     muted: '#394053',
-    danger: '#CF1414',
+    danger: '#DB2626',
+    successLink: '#469A4F',
     star: '#F5C227',
-    shadow: 'rgba(87, 105, 141, 0.08)',
+    shadow: 'rgba(165, 165, 165, 0.25)',
     primaryShadow: 'rgba(87, 165, 244, 0.25)',
     mascotShadow: '#E8EEF9',
     welcomeBadge: '#E7F0FE'
@@ -44,10 +45,10 @@ export const theme = {
       elevation: 4
     },
     card: {
-      shadowColor: '#57698D',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
+      shadowColor: '#A5A5A5',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
       elevation: 4
     }
   }

@@ -3,7 +3,7 @@ import { Venue } from '../domain/types';
 export const VENUES: Venue[] = [
   {
     id: 'vinzavod',
-    name: 'Винзавод',
+    name: 'Ритц',
     summary: 'Идеальный вечер в уютном ресторане с европейской кухней',
     rating: '4.7',
     imageKey: 'venueCover1',
@@ -35,17 +35,17 @@ export const VENUES: Venue[] = [
   },
   {
     id: 'surasan-loft',
-    name: 'Сурасан Loft',
+    name: 'Сурасан',
     summary: 'Настоящая корейская кухня',
-    rating: '4.3',
+    rating: '4.7',
     imageKey: 'venueCover2',
-    addressLine: 'ул. Пояркова, 18',
-    address: `Якутск, исторический центр
-лофт-пространство`,
+    addressLine: 'пр. Ленина, 15',
+    address: `Якутск, квартал делового центра
+2 этаж`,
     schedule: `Режим работы:
-вт-вс                               14:00-00:00`,
-    averageCheck: '2200',
-    cuisine: 'Корейская fusion',
+ежедневно                    12:00-23:00`,
+    averageCheck: '1800',
+    cuisine: 'Корейская',
     tags: ['лофт', 'корейская', 'центр', 'просторно']
   }
 ];

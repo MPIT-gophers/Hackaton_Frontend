@@ -17,9 +17,13 @@ export function AuthScreen() {
 
   return (
     <ScreenContainer contentStyle={styles.content}>
-      <View style={styles.heroWrap}>
-        <Text style={styles.heroText}>{isWeb ? 'Добро пожаловать!' : 'Добро пожаловать!'}</Text>
+      <View style={styles.topSection}>
+        <Text style={styles.heroText}>Добро пожаловать!</Text>
         <Image resizeMode="contain" source={imageAssets.authHero} style={styles.heroImage} />
+
+        <View style={styles.featureList}>
+          <FeatureItem text="Ввод параметров события" />
+        </View>
       </View>
 
       {isWeb ? (
@@ -46,13 +50,8 @@ export function AuthScreen() {
           <PrimaryButton onPress={actions.retryAuth} style={styles.button} testID="auth-retry-button" title="Попробовать снова" />
         </View>
       ) : (
-        <PrimaryButton onPress={actions.signIn} style={styles.button} testID="auth-button" title="Войти через MAX" />
+        <PrimaryButton onPress={actions.signIn} style={styles.button} testID="auth-button" title="Авторизоваться" />
       )}
-
-      <View style={styles.featureList}>
-        <FeatureItem text="Ввод параметров события" />
-        <FeatureItem text="Диалог с AI-агентом" />
-      </View>
     </ScreenContainer>
   );
 }
@@ -68,25 +67,38 @@ function FeatureItem({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   content: {
-    justifyContent: 'flex-start'
+    justifyContent: 'space-between'
   },
-  heroWrap: {
-    marginTop: 38,
-    width: '100%',
-    justifyContent: 'center',
+  topSection: {
     alignItems: 'center'
   },
   heroText: {
     color: theme.colors.text,
-    fontFamily: theme.typography.semiBold,
-    fontSize: 22,
-    lineHeight: 28,
-    marginBottom: 16,
+    fontFamily: theme.typography.medium,
+    fontSize: 26,
+    lineHeight: 31,
+    marginTop: 182,
     textAlign: 'center'
   },
   heroImage: {
     aspectRatio: AUTH_HERO_ASPECT_RATIO,
+    marginTop: 30,
     width: '100%'
+  },
+  featureList: {
+    alignSelf: 'flex-start',
+    marginTop: 30
+  },
+  featureItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 15
+  },
+  featureText: {
+    color: theme.colors.muted,
+    fontFamily: theme.typography.regular,
+    fontSize: 17,
+    lineHeight: 22
   },
   stateCard: {
     alignItems: 'center',
@@ -95,11 +107,12 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 18,
     paddingVertical: 24,
+    width: '100%',
     ...theme.shadows.card
   },
   stateTitle: {
     color: theme.colors.text,
-    fontFamily: theme.typography.semiBold,
+    fontFamily: theme.typography.medium,
     fontSize: 20,
     lineHeight: 24,
     marginTop: 16,
@@ -114,7 +127,7 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   button: {
-    marginTop: 24,
+    marginTop: 32,
     width: '100%'
   },
   secondaryButton: {
@@ -124,7 +137,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonLabel: {
     color: theme.colors.primary,
-    fontFamily: theme.typography.semiBold,
+    fontFamily: theme.typography.medium,
     fontSize: 17,
     lineHeight: 22,
     textAlign: 'center'
@@ -136,20 +149,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 14,
     textAlign: 'center'
-  },
-  featureList: {
-    gap: 10,
-    marginTop: 30
-  },
-  featureItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 15
-  },
-  featureText: {
-    color: theme.colors.muted,
-    fontFamily: theme.typography.regular,
-    fontSize: 17,
-    lineHeight: 22
   }
 });

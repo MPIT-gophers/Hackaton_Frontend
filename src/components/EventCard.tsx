@@ -1,18 +1,27 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
-import { BookedEvent } from '../domain/types';
+import { getImageAsset } from '../data/assets';
+import { BookedEvent, Venue } from '../domain/types';
 import { theme } from '../theme';
 
 type EventCardProps = {
   event: BookedEvent;
+  venue: Venue;
 };
 
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({ event, venue }: EventCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{event.title}</Text>
-      <Text style={styles.meta}>{event.date}</Text>
-      <Text style={styles.meta}>{event.time}</Text>
+      <View style={styles.media}>
+        <Image source={getImageAsset(venue.imageKey)} style={styles.image} />
+        <Text style={styles.venueName}>{venue.name}</Text>
+      </View>
+
+      <View style={styles.body}>
+        <Text style={styles.title}>{event.title}</Text>
+        <Text style={styles.meta}>{event.date}</Text>
+        <Text style={styles.meta}>{event.time}</Text>
+      </View>
     </View>
   );
 }
@@ -21,21 +30,41 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.xl,
-    minHeight: 106,
-    paddingHorizontal: 24,
+    overflow: 'hidden',
+    ...theme.shadows.card
+  },
+  media: {
+    height: 187,
+    overflow: 'hidden'
+  },
+  image: {
+    height: '100%',
+    width: '100%'
+  },
+  venueName: {
+    bottom: 15,
+    color: theme.colors.surfaceBright,
+    fontFamily: theme.typography.medium,
+    fontSize: 20,
+    left: 15,
+    lineHeight: 24,
+    position: 'absolute'
+  },
+  body: {
+    paddingHorizontal: 15,
     paddingVertical: 15
   },
   title: {
-    color: '#000000',
-    fontFamily: theme.typography.bold,
-    fontSize: 26,
-    lineHeight: 31,
+    color: theme.colors.text,
+    fontFamily: theme.typography.medium,
+    fontSize: 20,
+    lineHeight: 24,
     marginBottom: 6
   },
   meta: {
-    color: '#000000',
+    color: theme.colors.text,
     fontFamily: theme.typography.medium,
-    fontSize: 20,
-    lineHeight: 24
+    fontSize: 17,
+    lineHeight: 22
   }
 });

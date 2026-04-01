@@ -37,7 +37,7 @@ export function VenuesListScreen({ navigation }: VenuesListScreenProps) {
 
 const styles = StyleSheet.create({
   list: {
-    gap: 20,
+    gap: 15,
     marginTop: 30
   }
 });

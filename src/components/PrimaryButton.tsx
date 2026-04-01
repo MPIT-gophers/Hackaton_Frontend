@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 
 import { theme } from '../theme';
 
@@ -7,7 +7,7 @@ type PrimaryButtonProps = {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   testID?: string;
 };
 
@@ -33,8 +33,8 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xl,
     justifyContent: 'center',
     minHeight: 50,
-    paddingHorizontal: 10,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     ...theme.shadows.primary
   },
   pressed: {
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: theme.colors.surfaceBright,
-    fontFamily: theme.typography.semiBold,
+    fontFamily: theme.typography.medium,
     fontSize: 20,
     lineHeight: 24
   }
