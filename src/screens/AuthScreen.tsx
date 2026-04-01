@@ -34,10 +34,16 @@ export function AuthScreen() {
       ) : isWaiting ? (
         <View style={styles.stateCard}>
           <ActivityIndicator color={theme.colors.primary} size="large" />
-          <Text style={styles.stateTitle}>Подтвердите вход в MAX</Text>
-          <Text style={styles.stateDescription}>После подтверждения мы автоматически завершим вход и вернём вас в приложение.</Text>
+          <Text style={styles.stateTitle}>
+            {state.session.status === 'exchanging' ? 'Завершаем вход...' : 'Подтвердите вход в MAX'}
+          </Text>
+          <Text style={styles.stateDescription}>
+            {state.session.status === 'exchanging'
+              ? 'Получаем данные профиля, это может занять несколько секунд.'
+              : 'После подтверждения мы автоматически завершим вход и вернём вас в приложение.'}
+          </Text>
           {state.session.errorMessage ? <Text style={styles.errorText}>{state.session.errorMessage}</Text> : null}
-          {state.session.pendingMaxLink ? (
+          {state.session.pendingMaxLink && state.session.status !== 'exchanging' ? (
             <Pressable accessibilityRole="button" onPress={actions.reopenMax} style={styles.secondaryButton} testID="auth-open-max-button">
               <Text style={styles.secondaryButtonLabel}>Открыть MAX ещё раз</Text>
             </Pressable>

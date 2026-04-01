@@ -4,7 +4,7 @@ import { BackendUser, UserProfile } from '../domain/types';
 
 const PROFILE_STORAGE_KEY = '@event-organizer/profile';
 
-type StorageLike = Pick<typeof AsyncStorage, 'getItem' | 'setItem'>;
+type StorageLike = Pick<typeof AsyncStorage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export type LocalProfileState = {
   about: string;
@@ -14,6 +14,7 @@ export type LocalProfileState = {
 export type ProfileRepository = {
   getLocalProfile(): Promise<LocalProfileState>;
   saveLocalProfile(profile: LocalProfileState): Promise<void>;
+  clearLocalProfile(): Promise<void>;
   mergeProfile(user: BackendUser | null, local: Partial<LocalProfileState>): UserProfile;
 };
 
@@ -55,6 +56,10 @@ export function createProfileRepository(storage: StorageLike = AsyncStorage): Pr
 
     async saveLocalProfile(profile) {
       await storage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    },
+
+    async clearLocalProfile() {
+      await storage.removeItem(PROFILE_STORAGE_KEY);
     },
 
     mergeProfile(user, local) {

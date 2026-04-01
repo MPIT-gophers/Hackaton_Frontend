@@ -3,8 +3,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAppContext } from '../context/AppContext';
 import { AuthScreen } from '../screens/AuthScreen';
+import { EventDetailsScreen } from '../screens/EventDetailsScreen';
 import { EventFormScreen } from '../screens/EventFormScreen';
+import { EventGuestsScreen } from '../screens/EventGuestsScreen';
+import { EventPhotosScreen } from '../screens/EventPhotosScreen';
 import { EventSummaryScreen } from '../screens/EventSummaryScreen';
+import { EventWishlistScreen } from '../screens/EventWishlistScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LoadingScreen } from '../screens/LoadingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -36,6 +40,10 @@ export function RootNavigator() {
             <Stack.Screen name="VenuesList" component={VenuesListScreen} />
             <Stack.Screen name="VenueDetails" component={VenueDetailsScreen} />
             <Stack.Screen name="EventSummary" component={EventSummaryScreen} />
+            <Stack.Screen name="EventDetails" component={EventDetailsScreen} />
+            <Stack.Screen name="EventGuests" component={EventGuestsScreen} />
+            <Stack.Screen name="EventWishlist" component={EventWishlistScreen} />
+            <Stack.Screen name="EventPhotos" component={EventPhotosScreen} />
           </>
         )}
       </Stack.Navigator>

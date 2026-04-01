@@ -2,7 +2,7 @@ const API_BASE_URL = 'https://mpit-bot.kostya1024.ru/api/v1';
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH';
-  body?: unknown;
+  body?: FormData | unknown;
   accessToken?: string;
   headers?: Record<string, string>;
 };
@@ -57,11 +57,19 @@ function extractErrorMessage(payload: unknown) {
     return payload.message;
   }
 
+  if (isRecord(payload.error) && typeof payload.error.message === 'string') {
+    return payload.error.message;
+  }
+
   if (typeof payload.error === 'string') {
     return payload.error;
   }
 
   return null;
+}
+
+function isFormData(value: unknown): value is FormData {
+  return typeof FormData !== 'undefined' && value instanceof FormData;
 }
 
 async function parseResponse(response: Response) {
@@ -79,9 +87,12 @@ async function parseResponse(response: Response) {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const isMultipartBody = isFormData(options.body);
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+    ...(options.body && !isMultipartBody ? { 'Content-Type': 'application/json' } : {}),
     ...options.headers
   };
 
@@ -89,17 +100,53 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-  const response = await fetch(buildUrl(path), {
-    method: options.method ?? 'GET',
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const payload = await parseResponse(response);
+  try {
+    const response = await fetch(buildUrl(path), {
+      method: options.method ?? 'GET',
+      headers,
+      body: options.body ? (isFormData(options.body) ? options.body : JSON.stringify(options.body)) : undefined,
+      signal: controller.signal
+    });
 
-  if (!response.ok) {
-    throw new BackendError(extractErrorMessage(payload) ?? 'Request failed', response.status, payload);
+    clearTimeout(timeoutId);
+
+    const payload = await parseResponse(response);
+
+    if (!response.ok) {
+      throw new BackendError(extractErrorMessage(payload) ?? 'Request failed', response.status, payload);
+    }
+
+    return payload as T;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+export async function requestFormData<T>(
+  path: string,
+  options: Omit<RequestOptions, 'body'> & {
+    body: FormData;
+  }
+): Promise<T> {
+  return request<T>(path, options);
+}
+
+export function getBackendErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof BackendError && error.message) {
+    return error.message;
   }
 
-  return payload as T;
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+export function isUnauthorizedBackendError(error: unknown) {
+  return error instanceof BackendError && (error.status === 401 || error.status === 403);
 }

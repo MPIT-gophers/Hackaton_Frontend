@@ -19,6 +19,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [fullNameDraft, setFullNameDraft] = useState(state.profile.fullName);
   const [phoneDraft, setPhoneDraft] = useState(state.profile.phone);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleSave = async () => {
@@ -36,6 +37,19 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
       setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить профиль');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setSaveError(null);
+    setIsSigningOut(true);
+
+    try {
+      await actions.signOut();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Не удалось выйти из аккаунта');
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
@@ -70,6 +84,13 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
 
         <PrimaryButton loading={isSaving} onPress={handleSave} style={styles.saveButton} testID="profile-save-button" title="Сохранить" />
+        <PrimaryButton
+          loading={isSigningOut}
+          onPress={handleSignOut}
+          style={styles.logoutButton}
+          testID="profile-logout-button"
+          title="Выйти"
+        />
       </View>
     </ScreenContainer>
   );
@@ -118,6 +139,10 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   saveButton: {
+    marginTop: 8
+  },
+  logoutButton: {
+    backgroundColor: theme.colors.danger,
     marginTop: 8
   }
 });

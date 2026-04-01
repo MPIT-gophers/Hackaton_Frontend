@@ -10,6 +10,7 @@ function createProfileRepositoryMock(): ProfileRepository {
   return {
     getLocalProfile: jest.fn().mockResolvedValue({ about: '', notificationsEnabled: true }),
     saveLocalProfile: jest.fn().mockResolvedValue(undefined),
+    clearLocalProfile: jest.fn().mockResolvedValue(undefined),
     mergeProfile: jest.fn((user, local) => ({
       fullName: user?.fullName ?? '',
       phone: user?.phone ?? '',
@@ -116,6 +117,47 @@ describe('ProfileScreen', () => {
         about: 'Люблю rooftops',
         notificationsEnabled: false
       });
+    });
+  });
+
+  it('signs out from profile screen', async () => {
+    const profileRepository = createProfileRepositoryMock();
+    const authService = {
+      restore: jest.fn().mockResolvedValue({ auth: null, pending: null }),
+      startMaxAuth: jest.fn(),
+      getMaxSessionStatus: jest.fn(),
+      exchangeMaxSession: jest.fn(),
+      clearPendingSession: jest.fn().mockResolvedValue(undefined),
+      clearAuthSession: jest.fn().mockResolvedValue(undefined)
+    };
+
+    const screen = render(
+      <SafeAreaProvider>
+        <AppProvider
+          dependencies={{ profileRepository, authService }}
+          initialState={createInitialState({
+            isHydrated: true,
+            session: {
+              isAuthenticated: true,
+              status: 'authenticated',
+              accessToken: 'token-1',
+              tokenType: 'Bearer',
+              expiresAt: '2099-01-01T00:00:00Z'
+            }
+          })}
+          skipHydration
+        >
+          <ProfileScreen navigation={{ goBack: jest.fn() } as any} route={{ key: 'Profile', name: 'Profile' }} />
+        </AppProvider>
+      </SafeAreaProvider>
+    );
+
+    fireEvent.press(screen.getByTestId('profile-logout-button'));
+
+    await waitFor(() => {
+      expect(authService.clearAuthSession).toHaveBeenCalledTimes(1);
+      expect(authService.clearPendingSession).toHaveBeenCalledTimes(1);
+      expect(profileRepository.clearLocalProfile).toHaveBeenCalledTimes(1);
     });
   });
 });

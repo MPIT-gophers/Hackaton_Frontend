@@ -14,7 +14,6 @@ type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const { state, actions } = useAppContext();
-  const venueMap = new Map(state.venues.map((venue) => [venue.id, venue]));
 
   const openProfile = () => navigation.navigate('Profile');
   const openForm = () => {
@@ -46,11 +45,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       ) : (
         <View style={styles.filledWrap}>
           <ScrollView contentContainerStyle={styles.eventsList} showsVerticalScrollIndicator={false}>
-            {state.events.map((event) => {
-              const venue = venueMap.get(event.venueId);
-
-              return venue ? <EventCard event={event} key={event.id} venue={venue} /> : null;
-            })}
+            {state.events.map((event, index) => (
+              <EventCard
+                event={event}
+                imageKey={index % 2 === 0 ? 'venueCover1' : 'venueCover2'}
+                key={event.id}
+                onPress={() => navigation.navigate('EventDetails', { eventId: event.id })}
+              />
+            ))}
             <View style={styles.eventsBottomSpacer} />
           </ScrollView>
 

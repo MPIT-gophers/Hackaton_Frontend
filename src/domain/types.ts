@@ -26,13 +26,76 @@ export type EventDraft = {
 export type RequiredEventField = 'occasion' | 'city' | 'date' | 'budget' | 'guests';
 export type EventDraftErrors = Partial<Record<RequiredEventField, true>>;
 
-export type BookedEvent = {
+export type BackendEventVariant = Record<string, unknown>;
+
+export type BackendEvent = {
   id: string;
   title: string;
-  date: string;
-  time: string;
-  venueId: string;
-  venueName: string;
+  city: string;
+  budget: string;
+  description: string;
+  eventDate: string;
+  eventTime: string;
+  expectedGuestCount: number;
+  inviteToken: string;
+  selectedVariantId: string;
+  status: string;
+  accessRole: string;
+  approvalStatus: string;
+  attendanceStatus: string;
+  createdAt: string;
+  updatedAt: string;
+  variants: BackendEventVariant[];
+};
+
+export type AttendanceStatus = 'pending' | 'confirmed' | 'declined';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type EventGuest = {
+  id: string;
+  eventId: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  plusOneCount: number;
+  approvalStatus: ApprovalStatus;
+  attendanceStatus: AttendanceStatus;
+  createdAt: string;
+};
+
+export type EventGuestStats = {
+  approved: number;
+  attendancePending: number;
+  confirmed: number;
+  declined: number;
+  pendingApproval: number;
+  rejected: number;
+};
+
+export type InviteTokenInfo = {
+  token: string;
+};
+
+export type WishlistResponse = unknown;
+export type PhotosResponse = unknown;
+
+export type UploadablePhoto = {
+  uri: string;
+  name: string;
+  type: string;
+};
+
+export type NormalizedWishlistItem = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  raw: unknown;
+};
+
+export type NormalizedPhoto = {
+  id: string;
+  url: string;
+  raw: unknown;
 };
 
 export type AuthStatus = 'anonymous' | 'starting' | 'waiting_confirmation' | 'exchanging' | 'authenticated' | 'error';

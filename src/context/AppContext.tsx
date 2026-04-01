@@ -3,14 +3,20 @@ import { AppState as RNAppState, Linking, Platform } from 'react-native';
 
 import {
   AppSession,
+  AttendanceStatus,
+  BackendEvent,
   BackendUser,
-  BookedEvent,
   EventDraft,
   EventDraftErrors,
+  EventGuest,
+  EventGuestStats,
   PendingAuthSession,
+  PhotosResponse,
   StoredAuthSession,
+  UploadablePhoto,
   UserProfile,
-  Venue
+  Venue,
+  WishlistResponse
 } from '../domain/types';
 import { createEventsRepository, EventsRepository } from '../repositories/eventsRepository';
 import {
@@ -19,9 +25,13 @@ import {
   defaultUserProfile,
   ProfileRepository
 } from '../repositories/profileRepository';
-import { createProfileService, profileService as defaultProfileService, ProfileService } from '../services/profileService';
 import { authService as defaultAuthService, AuthService } from '../services/authService';
-import { BackendError } from '../services/backendClient';
+import {
+  BackendError,
+  getBackendErrorMessage,
+  isUnauthorizedBackendError
+} from '../services/backendClient';
+import { createProfileService, profileService as defaultProfileService, ProfileService } from '../services/profileService';
 import { venuesRepository as defaultVenuesRepository, VenuesRepository } from '../repositories/venuesRepository';
 import { getSelectedVenue } from '../utils/venueRanking';
 import { validateEventDraft } from '../utils/validation';
@@ -32,7 +42,21 @@ const AUTH_COMPLETE_FAILED_MESSAGE = 'Не удалось завершить в�
 const OPEN_MAX_FAILED_MESSAGE = 'Не удалось открыть MAX автоматически';
 const MOBILE_ONLY_AUTH_MESSAGE = 'Авторизация через MAX доступна в мобильной версии';
 const PROFILE_UPDATE_FAILED_MESSAGE = 'Не удалось сохранить профиль. Попробуйте снова.';
-const PROFILE_SESSION_EXPIRED_MESSAGE = 'Сессия истекла, войдите снова';
+const SESSION_EXPIRED_MESSAGE = 'Сессия истекла, войдите снова';
+const EVENTS_LOAD_FAILED_MESSAGE = 'Не удалось загрузить мероприятия. Попробуйте снова.';
+const EVENT_CREATE_FAILED_MESSAGE = 'Не удалось сохранить мероприятие. Попробуйте снова.';
+const EVENT_DETAILS_FAILED_MESSAGE = 'Не удалось загрузить мероприятие. Попробуйте снова.';
+const EVENT_GUESTS_FAILED_MESSAGE = 'Не удалось загрузить гостей. Попробуйте снова.';
+const EVENT_STATS_FAILED_MESSAGE = 'Не удалось загрузить статистику. Попробуйте снова.';
+const EVENT_INVITE_FAILED_MESSAGE = 'Не удалось получить invite token. Попробуйте снова.';
+const EVENT_GUEST_UPDATE_FAILED_MESSAGE = 'Не удалось обновить статус гостя. Попробуйте снова.';
+const WISHLIST_LOAD_FAILED_MESSAGE = 'Не удалось загрузить wishlist. Попробуйте снова.';
+const WISHLIST_PARSE_FAILED_MESSAGE = 'Не удалось разобрать wishlist. Попробуйте снова.';
+const WISHLIST_IDEA_FAILED_MESSAGE = 'Не удалось отправить идею. Попробуйте снова.';
+const WISHLIST_BOOK_FAILED_MESSAGE = 'Не удалось забронировать item. Попробуйте снова.';
+const WISHLIST_FUND_FAILED_MESSAGE = 'Не удалось отправить финансирование. Попробуйте снова.';
+const PHOTOS_LOAD_FAILED_MESSAGE = 'Не удалось загрузить фотографии. Попробуйте снова.';
+const PHOTOS_UPLOAD_FAILED_MESSAGE = 'Не удалось загрузить фотографии. Попробуйте снова.';
 const POLLING_INTERVAL_MS = 1500;
 
 export type AppState = {
@@ -41,7 +65,7 @@ export type AppState = {
   draft: EventDraft;
   draftErrors: EventDraftErrors;
   profile: UserProfile;
-  events: BookedEvent[];
+  events: BackendEvent[];
   venues: Venue[];
   selectedVenueId: string | null;
 };
@@ -58,7 +82,7 @@ type AppAction =
   | { type: 'auth-start' }
   | { type: 'auth-waiting'; pendingSession: PendingAuthSession; errorMessage?: string | null }
   | { type: 'auth-exchanging' }
-  | { type: 'auth-success'; authSession: StoredAuthSession; profile: UserProfile }
+  | { type: 'auth-success'; authSession: StoredAuthSession; profile: UserProfile; events: BackendEvent[] }
   | { type: 'auth-error'; errorMessage: string }
   | { type: 'auth-clear' }
   | { type: 'set-draft-field'; field: keyof EventDraft; value: string }
@@ -66,7 +90,8 @@ type AppAction =
   | { type: 'set-selected-venue'; venueId: string | null }
   | { type: 'reset-draft' }
   | { type: 'set-profile'; profile: UserProfile }
-  | { type: 'add-event'; event: BookedEvent };
+  | { type: 'set-events'; events: BackendEvent[] }
+  | { type: 'add-event'; event: BackendEvent };
 
 export type AppDependencies = {
   authService: AuthService;
@@ -142,10 +167,6 @@ function getPendingSessionFromState(session: AppSession): PendingAuthSession | n
   };
 }
 
-function isUnauthorizedError(error: unknown) {
-  return error instanceof BackendError && (error.status === 401 || error.status === 403);
-}
-
 function isExpiredAuthError(error: unknown) {
   return (
     error instanceof BackendError &&
@@ -155,18 +176,6 @@ function isExpiredAuthError(error: unknown) {
 
 function isAlreadyExchangedError(error: unknown) {
   return error instanceof BackendError && error.message.toLowerCase() === 'auth session already exchanged';
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof BackendError && error.message) {
-    return error.message;
-  }
-
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return fallback;
 }
 
 export function createInitialState(overrides: InitialStateOverrides = {}): AppState {
@@ -225,7 +234,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         session: createAuthenticatedSession(action.authSession),
-        profile: action.profile
+        profile: action.profile,
+        events: action.events
       };
     case 'auth-error':
       return {
@@ -237,8 +247,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     case 'auth-clear':
       return {
-        ...state,
-        session: createAnonymousSession()
+        ...createInitialState({
+          isHydrated: state.isHydrated,
+          venues: state.venues
+        })
       };
     case 'set-draft-field': {
       const nextErrors = { ...state.draftErrors };
@@ -275,13 +287,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         profile: action.profile
       };
+    case 'set-events':
+      return {
+        ...state,
+        events: action.events
+      };
     case 'add-event':
       return {
         ...state,
-        events: [action.event, ...state.events],
-        draft: createBlankDraft(),
-        draftErrors: {},
-        selectedVenueId: null
+        events: [action.event, ...state.events]
       };
     default:
       return state;
@@ -304,6 +318,8 @@ type AppContextValue = {
     signIn(): Promise<void>;
     retryAuth(): Promise<void>;
     reopenMax(): Promise<void>;
+    signOut(): Promise<void>;
+    refreshEvents(): Promise<BackendEvent[]>;
     startEventDraft(): void;
     updateDraftField(field: keyof EventDraft, value: string): void;
     validateDraft(): boolean;
@@ -311,7 +327,19 @@ type AppContextValue = {
     toggleNotifications(): Promise<void>;
     updateAbout(about: string): Promise<void>;
     saveProfileIdentity(fullName: string, phone: string): Promise<void>;
-    confirmBooking(): Promise<BookedEvent | null>;
+    confirmBooking(): Promise<BackendEvent | null>;
+    getEventDetails(eventId: string): Promise<BackendEvent>;
+    getEventGuests(eventId: string, approvalStatus?: string): Promise<EventGuest[]>;
+    getEventStats(eventId: string): Promise<EventGuestStats>;
+    getEventInviteToken(eventId: string): Promise<string | null>;
+    updateGuestAttendance(eventId: string, guestId: string, attendanceStatus: AttendanceStatus): Promise<EventGuest>;
+    getWishlist(eventId: string): Promise<WishlistResponse>;
+    parseWishlistText(eventId: string, text: string): Promise<WishlistResponse>;
+    submitWishlistIdea(eventId: string, text: string): Promise<WishlistResponse>;
+    bookWishlistItem(eventId: string, itemId: string): Promise<WishlistResponse>;
+    fundWishlistItem(eventId: string, itemId: string, amount: number): Promise<WishlistResponse>;
+    getPhotos(eventId: string): Promise<PhotosResponse>;
+    uploadPhotos(eventId: string, photos: UploadablePhoto[]): Promise<PhotosResponse>;
   };
 };
 
@@ -327,6 +355,43 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       notificationsEnabled: state.profile.notificationsEnabled
     }),
     [state.profile.about, state.profile.notificationsEnabled]
+  );
+
+  const loadEventsForToken = useCallback(
+    async (accessToken: string) => {
+      return deps.eventsRepository.listMyEvents(accessToken);
+    },
+    [deps.eventsRepository]
+  );
+
+  const signOut = useCallback(async () => {
+    await Promise.allSettled([
+      deps.authService.clearAuthSession(),
+      deps.authService.clearPendingSession(),
+      deps.profileRepository.clearLocalProfile()
+    ]);
+
+    dispatch({ type: 'auth-clear' });
+  }, [deps.authService, deps.profileRepository]);
+
+  const requireAccessToken = useCallback(() => {
+    if (!state.session.accessToken) {
+      throw new Error(SESSION_EXPIRED_MESSAGE);
+    }
+
+    return state.session.accessToken;
+  }, [state.session.accessToken]);
+
+  const handleProtectedError = useCallback(
+    async (error: unknown, fallback: string): Promise<never> => {
+      if (isUnauthorizedBackendError(error)) {
+        await signOut();
+        throw new Error(SESSION_EXPIRED_MESSAGE);
+      }
+
+      throw new Error(getBackendErrorMessage(error, fallback));
+    },
+    [signOut]
   );
 
   const openMaxApp = useCallback(async (pendingSession: PendingAuthSession) => {
@@ -351,10 +416,9 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     let isMounted = true;
 
     async function hydrate() {
-      const [authResult, profileResult, eventsResult, venuesResult] = await Promise.allSettled([
+      const [authResult, profileResult, venuesResult] = await Promise.allSettled([
         deps.authService.restore(),
         deps.profileRepository.getLocalProfile(),
-        deps.eventsRepository.listEvents(),
         deps.venuesRepository.getVenues({
           placeType: '',
           location: '',
@@ -368,11 +432,24 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
 
       const restoredAuth = authResult.status === 'fulfilled' ? authResult.value : { auth: null, pending: null };
       const localProfile = profileResult.status === 'fulfilled' ? profileResult.value : defaultLocalProfile;
-      const events = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
       const venues = venuesResult.status === 'fulfilled' ? venuesResult.value : [];
-      const profile = deps.profileRepository.mergeProfile(restoredAuth.auth?.user ?? null, localProfile);
-      const session = restoredAuth.auth
-        ? createAuthenticatedSession(restoredAuth.auth)
+      let authSession = restoredAuth.auth;
+      let events: BackendEvent[] = [];
+
+      if (authSession) {
+        try {
+          events = await loadEventsForToken(authSession.tokens.accessToken);
+        } catch (error) {
+          if (isUnauthorizedBackendError(error)) {
+            await deps.authService.clearAuthSession();
+            authSession = null;
+          }
+        }
+      }
+
+      const profile = deps.profileRepository.mergeProfile(authSession?.user ?? null, localProfile);
+      const session = authSession
+        ? createAuthenticatedSession(authSession)
         : restoredAuth.pending
           ? createWaitingSession(restoredAuth.pending)
           : createAnonymousSession();
@@ -393,7 +470,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     return () => {
       isMounted = false;
     };
-  }, [deps, skipHydration]);
+  }, [deps.authService, deps.profileRepository, deps.venuesRepository, loadEventsForToken, skipHydration]);
 
   useEffect(() => {
     if (state.session.status !== 'waiting_confirmation' || !state.session.pendingSessionId) {
@@ -437,6 +514,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         dispatch({ type: 'auth-exchanging' });
 
         const authSession = await deps.authService.exchangeMaxSession(state.session.pendingSessionId!);
+        const events = await loadEventsForToken(authSession.tokens.accessToken).catch(() => []);
 
         if (!isActive) {
           return;
@@ -445,7 +523,8 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         dispatch({
           type: 'auth-success',
           authSession,
-          profile: deps.profileRepository.mergeProfile(authSession.user, localProfileSnapshot)
+          profile: deps.profileRepository.mergeProfile(authSession.user, localProfileSnapshot),
+          events
         });
       } catch (error) {
         if (!isActive) {
@@ -466,10 +545,12 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
           const restoredAuth = await deps.authService.restore();
 
           if (restoredAuth.auth && isActive) {
+            const events = await loadEventsForToken(restoredAuth.auth.tokens.accessToken).catch(() => []);
             dispatch({
               type: 'auth-success',
               authSession: restoredAuth.auth,
-              profile: deps.profileRepository.mergeProfile(restoredAuth.auth.user, localProfileSnapshot)
+              profile: deps.profileRepository.mergeProfile(restoredAuth.auth.user, localProfileSnapshot),
+              events
             });
             return;
           }
@@ -478,7 +559,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         await deps.authService.clearPendingSession();
         dispatch({
           type: 'auth-error',
-          errorMessage: getErrorMessage(error, AUTH_COMPLETE_FAILED_MESSAGE)
+          errorMessage: getBackendErrorMessage(error, AUTH_COMPLETE_FAILED_MESSAGE)
         });
       } finally {
         isRequestInFlight = false;
@@ -492,6 +573,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
 
     const appStateSubscription = RNAppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
+        isRequestInFlight = false;
         void pollSession();
       }
     });
@@ -501,7 +583,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       clearInterval(intervalId);
       appStateSubscription.remove();
     };
-  }, [deps.authService, deps.profileRepository, localProfileSnapshot, state.session.pendingSessionId, state.session.status]);
+  }, [deps.authService, deps.profileRepository, loadEventsForToken, localProfileSnapshot, state.session.pendingSessionId, state.session.status]);
 
   const signIn = useCallback(async () => {
     if (Platform.OS === 'web') {
@@ -517,7 +599,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     } catch (error) {
       dispatch({
         type: 'auth-error',
-        errorMessage: getErrorMessage(error, AUTH_START_FAILED_MESSAGE)
+        errorMessage: getBackendErrorMessage(error, AUTH_START_FAILED_MESSAGE)
       });
     }
   }, [deps.authService, openMaxApp]);
@@ -537,6 +619,18 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
 
     await openMaxApp(pendingSession);
   }, [openMaxApp, state.session]);
+
+  const refreshEvents = useCallback(async () => {
+    const accessToken = requireAccessToken();
+
+    try {
+      const events = await deps.eventsRepository.listMyEvents(accessToken);
+      dispatch({ type: 'set-events', events });
+      return events;
+    } catch (error) {
+      return handleProtectedError(error, EVENTS_LOAD_FAILED_MESSAGE);
+    }
+  }, [deps.eventsRepository, handleProtectedError, requireAccessToken]);
 
   const startEventDraft = useCallback(() => {
     dispatch({ type: 'reset-draft' });
@@ -602,12 +696,10 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
 
   const saveProfileIdentity = useCallback(
     async (fullName: string, phone: string) => {
-      if (!state.session.accessToken) {
-        throw new Error(PROFILE_SESSION_EXPIRED_MESSAGE);
-      }
+      const accessToken = requireAccessToken();
 
       try {
-        const backendUser = await deps.profileService.updateMe(state.session.accessToken, {
+        const backendUser = await deps.profileService.updateMe(accessToken, {
           fullName: fullName.trim(),
           phone: phone.trim() ? phone.trim() : null
         });
@@ -617,16 +709,10 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
           profile: deps.profileRepository.mergeProfile(backendUser, localProfileSnapshot)
         });
       } catch (error) {
-        if (isUnauthorizedError(error)) {
-          await deps.authService.clearAuthSession();
-          dispatch({ type: 'auth-clear' });
-          throw new Error(PROFILE_SESSION_EXPIRED_MESSAGE);
-        }
-
-        throw new Error(getErrorMessage(error, PROFILE_UPDATE_FAILED_MESSAGE));
+        return handleProtectedError(error, PROFILE_UPDATE_FAILED_MESSAGE);
       }
     },
-    [deps.authService, deps.profileRepository, deps.profileService, localProfileSnapshot, state.session.accessToken]
+    [deps.profileRepository, deps.profileService, handleProtectedError, localProfileSnapshot, requireAccessToken]
   );
 
   const confirmBooking = useCallback(async () => {
@@ -636,11 +722,185 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       return null;
     }
 
-    const event = await deps.eventsRepository.createEvent(state.draft, selectedVenue);
-    dispatch({ type: 'add-event', event });
+    const accessToken = requireAccessToken();
 
-    return event;
-  }, [deps.eventsRepository, state.draft, state.selectedVenueId, state.venues]);
+    try {
+      const createdEvent = await deps.eventsRepository.createEvent(accessToken, state.draft);
+
+      try {
+        const events = await deps.eventsRepository.listMyEvents(accessToken);
+        dispatch({ type: 'set-events', events });
+      } catch (refreshError) {
+        if (isUnauthorizedBackendError(refreshError)) {
+          return handleProtectedError(refreshError, EVENTS_LOAD_FAILED_MESSAGE);
+        }
+
+        dispatch({ type: 'add-event', event: createdEvent });
+      }
+
+      dispatch({ type: 'reset-draft' });
+      return createdEvent;
+    } catch (error) {
+      return handleProtectedError(error, EVENT_CREATE_FAILED_MESSAGE);
+    }
+  }, [deps.eventsRepository, handleProtectedError, requireAccessToken, state.draft, state.selectedVenueId, state.venues]);
+
+  const getEventDetails = useCallback(
+    async (eventId: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.getEventById(accessToken, eventId);
+      } catch (error) {
+        return handleProtectedError(error, EVENT_DETAILS_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const getEventGuests = useCallback(
+    async (eventId: string, approvalStatus?: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.getEventGuests(accessToken, eventId, approvalStatus);
+      } catch (error) {
+        return handleProtectedError(error, EVENT_GUESTS_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const getEventStats = useCallback(
+    async (eventId: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.getEventStats(accessToken, eventId);
+      } catch (error) {
+        return handleProtectedError(error, EVENT_STATS_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const getEventInviteToken = useCallback(
+    async (eventId: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        const invite = await deps.eventsRepository.getEventInviteToken(accessToken, eventId);
+        return invite?.token ?? null;
+      } catch (error) {
+        return handleProtectedError(error, EVENT_INVITE_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const updateGuestAttendance = useCallback(
+    async (eventId: string, guestId: string, attendanceStatus: AttendanceStatus) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.updateGuestAttendance(accessToken, eventId, guestId, attendanceStatus);
+      } catch (error) {
+        return handleProtectedError(error, EVENT_GUEST_UPDATE_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const getWishlist = useCallback(
+    async (eventId: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.getWishlist(accessToken, eventId);
+      } catch (error) {
+        return handleProtectedError(error, WISHLIST_LOAD_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const parseWishlistText = useCallback(
+    async (eventId: string, text: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.parseWishlistText(accessToken, eventId, text);
+      } catch (error) {
+        return handleProtectedError(error, WISHLIST_PARSE_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const submitWishlistIdea = useCallback(
+    async (eventId: string, text: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.submitWishlistIdea(accessToken, eventId, text);
+      } catch (error) {
+        return handleProtectedError(error, WISHLIST_IDEA_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const bookWishlistItem = useCallback(
+    async (eventId: string, itemId: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.bookWishlistItem(accessToken, eventId, itemId);
+      } catch (error) {
+        return handleProtectedError(error, WISHLIST_BOOK_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const fundWishlistItem = useCallback(
+    async (eventId: string, itemId: string, amount: number) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.fundWishlistItem(accessToken, eventId, itemId, amount);
+      } catch (error) {
+        return handleProtectedError(error, WISHLIST_FUND_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const getPhotos = useCallback(
+    async (eventId: string) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.getEventPhotos(accessToken, eventId);
+      } catch (error) {
+        return handleProtectedError(error, PHOTOS_LOAD_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
+  const uploadPhotos = useCallback(
+    async (eventId: string, photos: UploadablePhoto[]) => {
+      const accessToken = requireAccessToken();
+
+      try {
+        return await deps.eventsRepository.uploadEventPhotos(accessToken, eventId, photos);
+      } catch (error) {
+        return handleProtectedError(error, PHOTOS_UPLOAD_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -649,6 +909,8 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         signIn,
         retryAuth,
         reopenMax,
+        signOut,
+        refreshEvents,
         startEventDraft,
         updateDraftField,
         validateDraft,
@@ -656,22 +918,48 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         toggleNotifications,
         updateAbout,
         saveProfileIdentity,
-        confirmBooking
+        confirmBooking,
+        getEventDetails,
+        getEventGuests,
+        getEventStats,
+        getEventInviteToken,
+        updateGuestAttendance,
+        getWishlist,
+        parseWishlistText,
+        submitWishlistIdea,
+        bookWishlistItem,
+        fundWishlistItem,
+        getPhotos,
+        uploadPhotos
       }
     }),
     [
-      chooseVenue,
-      confirmBooking,
-      reopenMax,
-      retryAuth,
-      saveProfileIdentity,
-      signIn,
-      startEventDraft,
       state,
+      signIn,
+      retryAuth,
+      reopenMax,
+      signOut,
+      refreshEvents,
+      startEventDraft,
+      updateDraftField,
+      validateDraft,
+      chooseVenue,
       toggleNotifications,
       updateAbout,
-      updateDraftField,
-      validateDraft
+      saveProfileIdentity,
+      confirmBooking,
+      getEventDetails,
+      getEventGuests,
+      getEventStats,
+      getEventInviteToken,
+      updateGuestAttendance,
+      getWishlist,
+      parseWishlistText,
+      submitWishlistIdea,
+      bookWishlistItem,
+      fundWishlistItem,
+      getPhotos,
+      uploadPhotos
     ]
   );
 

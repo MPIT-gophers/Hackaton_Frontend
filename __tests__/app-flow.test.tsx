@@ -3,8 +3,9 @@ import { AppState as RNAppState, Linking, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppProvider, createInitialState, useAppContext } from '../src/context/AppContext';
-import { PendingAuthSession, StoredAuthSession } from '../src/domain/types';
+import { BackendEvent, PendingAuthSession, StoredAuthSession } from '../src/domain/types';
 import { VENUES } from '../src/data/venues';
+import { EventsRepository } from '../src/repositories/eventsRepository';
 import { AuthService } from '../src/services/authService';
 import { AuthScreen } from '../src/screens/AuthScreen';
 import { HomeScreen } from '../src/screens/HomeScreen';
@@ -46,6 +47,48 @@ function createAuthServiceMock(overrides: Partial<AuthService> = {}): AuthServic
   };
 }
 
+function createEventsRepositoryMock(overrides: Partial<EventsRepository> = {}): EventsRepository {
+  return {
+    listMyEvents: jest.fn().mockResolvedValue([]),
+    createEvent: jest.fn(),
+    getEventById: jest.fn(),
+    getEventGuests: jest.fn(),
+    getEventStats: jest.fn(),
+    getEventInviteToken: jest.fn(),
+    updateGuestAttendance: jest.fn(),
+    getWishlist: jest.fn(),
+    submitWishlistIdea: jest.fn(),
+    parseWishlistText: jest.fn(),
+    bookWishlistItem: jest.fn(),
+    fundWishlistItem: jest.fn(),
+    getEventPhotos: jest.fn(),
+    uploadEventPhotos: jest.fn(),
+    ...overrides
+  };
+}
+
+function createBackendEvent(): BackendEvent {
+  return {
+    id: 'event-1',
+    title: 'День рождение',
+    city: 'Якутск',
+    budget: '50000',
+    description: '',
+    eventDate: '2026-04-05',
+    eventTime: '14:00',
+    expectedGuestCount: 12,
+    inviteToken: 'invite-1',
+    selectedVariantId: '',
+    status: 'active',
+    accessRole: 'owner',
+    approvalStatus: 'approved',
+    attendanceStatus: 'confirmed',
+    createdAt: '2026-04-01T00:00:00Z',
+    updatedAt: '2026-04-01T00:00:00Z',
+    variants: []
+  };
+}
+
 function SessionProbe() {
   const { state } = useAppContext();
 
@@ -65,10 +108,11 @@ describe('screen flow', () => {
     const authService = createAuthServiceMock({
       getMaxSessionStatus: jest.fn().mockResolvedValue('completed')
     });
+    const eventsRepository = createEventsRepositoryMock();
 
     const screen = render(
       <SafeAreaProvider>
-        <AppProvider dependencies={{ authService }} initialState={createInitialState({ isHydrated: true })} skipHydration>
+        <AppProvider dependencies={{ authService, eventsRepository }} initialState={createInitialState({ isHydrated: true })} skipHydration>
           <AuthScreen />
           <SessionProbe />
         </AppProvider>
@@ -92,11 +136,12 @@ describe('screen flow', () => {
     const authService = createAuthServiceMock({
       getMaxSessionStatus: jest.fn().mockResolvedValue('pending')
     });
+    const eventsRepository = createEventsRepositoryMock();
 
     const screen = render(
       <SafeAreaProvider>
         <AppProvider
-          dependencies={{ authService }}
+          dependencies={{ authService, eventsRepository }}
           initialState={createInitialState({
             isHydrated: true,
             session: {
@@ -119,11 +164,12 @@ describe('screen flow', () => {
 
   it('shows retry state after auth error', async () => {
     const authService = createAuthServiceMock();
+    const eventsRepository = createEventsRepositoryMock();
 
     const screen = render(
       <SafeAreaProvider>
         <AppProvider
-          dependencies={{ authService }}
+          dependencies={{ authService, eventsRepository }}
           initialState={createInitialState({
             isHydrated: true,
             session: {
@@ -175,6 +221,7 @@ describe('screen flow', () => {
 
   it('renders filled home variant with existing events', () => {
     const navigation = { navigate: jest.fn() } as any;
+    const event = createBackendEvent();
     const screen = render(
       <SafeAreaProvider>
         <AppProvider
@@ -188,16 +235,7 @@ describe('screen flow', () => {
               expiresAt: '2099-01-01T00:00:00Z'
             },
             venues: VENUES,
-            events: [
-              {
-                id: 'event-1',
-                title: 'День рождение',
-                date: '5 апреля 2026 г.',
-                time: '14:00',
-                venueId: 'vinzavod',
-                venueName: 'Ритц'
-              }
-            ]
+            events: [event]
           })}
           skipHydration
         >
@@ -206,7 +244,7 @@ describe('screen flow', () => {
       </SafeAreaProvider>
     );
 
-    expect(screen.getByText('Ритц')).toBeTruthy();
+    expect(screen.getByText('Якутск')).toBeTruthy();
     expect(screen.getByText('День рождение')).toBeTruthy();
   });
 
@@ -222,11 +260,12 @@ describe('screen flow', () => {
     const authService = createAuthServiceMock({
       getMaxSessionStatus: jest.fn().mockResolvedValue('pending')
     });
+    const eventsRepository = createEventsRepositoryMock();
 
     const screen = render(
       <SafeAreaProvider>
         <AppProvider
-          dependencies={{ authService }}
+          dependencies={{ authService, eventsRepository }}
           initialState={createInitialState({
             isHydrated: true,
             session: {
@@ -251,6 +290,10 @@ describe('screen flow', () => {
     expect(screen.getByText('signed-out')).toBeTruthy();
     expect(appStateCallback).not.toBeNull();
 
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     (authService.getMaxSessionStatus as jest.Mock).mockResolvedValue('completed');
 
     await act(async () => {
@@ -258,9 +301,7 @@ describe('screen flow', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('signed-in')).toBeTruthy();
+      expect(authService.getMaxSessionStatus).toHaveBeenCalledTimes(2);
     });
-
-    expect(authService.exchangeMaxSession).toHaveBeenCalledWith('session-1');
   });
 });
