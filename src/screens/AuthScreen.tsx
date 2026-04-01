@@ -17,8 +17,9 @@ export function AuthScreen() {
   const isError = state.session.status === 'error';
 
   return (
-    <ScreenContainer contentStyle={styles.content} scrollable>
+    <ScreenContainer contentStyle={styles.content}>
       <View style={styles.topSection}>
+        <Text style={styles.heroText}>Добро пожаловать!</Text>
         <Image resizeMode="contain" source={imageAssets.authHero} style={styles.heroImage} />
 
         <View style={styles.featureList}>
@@ -76,25 +77,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   topSection: {
-    alignItems: 'center'
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center'
   },
   heroText: {
     color: theme.colors.text,
     fontFamily: theme.typography.medium,
     fontSize: 26,
     lineHeight: 31,
-    marginTop: 182,
     textAlign: 'center'
   },
   heroImage: {
     aspectRatio: AUTH_HERO_ASPECT_RATIO,
     marginTop: 16,
-    maxHeight: SCREEN_HEIGHT * 0.3,
-    width: '65%'
+    maxHeight: SCREEN_HEIGHT * 0.24,
+    width: '88%'
   },
   featureList: {
     alignSelf: 'flex-start',
-    marginTop: 30
+    marginTop: 16
   },
   featureItem: {
     alignItems: 'center',
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   button: {
-    marginTop: 32,
+    marginTop: 24,
     width: '100%'
   },
   secondaryButton: {

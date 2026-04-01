@@ -122,6 +122,27 @@ describe('event summary flow', () => {
       expect(screen.getByText('events:1')).toBeTruthy();
     });
 
-    expect(navigation.goBack).toHaveBeenCalled();
+    expect(navigation.reset).toHaveBeenCalledWith({
+      index: 0,
+      routes: [{ name: 'Home' }]
+    });
+  });
+
+  it('opens EventForm in edit mode from summary', () => {
+    const navigation = { goBack: jest.fn(), navigate: jest.fn(), reset: jest.fn() } as any;
+    const screen = render(
+      <SafeAreaProvider>
+        <AppProvider initialState={baseState} skipHydration>
+          <EventSummaryScreen navigation={navigation} route={{ key: 'EventSummary', name: 'EventSummary' }} />
+        </AppProvider>
+      </SafeAreaProvider>
+    );
+
+    fireEvent.press(screen.getByTestId('event-summary-edit-params-button'));
+
+    expect(navigation.navigate).toHaveBeenCalledWith('EventForm', {
+      mode: 'edit',
+      returnTo: 'EventSummary'
+    });
   });
 });

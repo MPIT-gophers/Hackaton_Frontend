@@ -2,6 +2,13 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { theme } from '../theme';
 
+const BASE_FONT_SIZE = 17;
+const PADDING_H = 15;
+const CHAR_WIDTH_FACTOR = 1.15;
+const MIN_FONT_SCALE = 0.75;
+
+export { BASE_FONT_SIZE, PADDING_H, CHAR_WIDTH_FACTOR, MIN_FONT_SCALE };
+
 type RoundedInputProps = {
   placeholder: string;
   value: string;
@@ -10,6 +17,9 @@ type RoundedInputProps = {
   keyboardType?: 'default' | 'numeric' | 'phone-pad';
   bright?: boolean;
   testID?: string;
+  editable?: boolean;
+  compact?: boolean;
+  placeholderFontSize?: number;
 };
 
 export function RoundedInput({
@@ -19,10 +29,19 @@ export function RoundedInput({
   invalid = false,
   keyboardType = 'default',
   bright = false,
-  testID
+  testID,
+  editable = true,
+  compact = false,
+  placeholderFontSize
 }: RoundedInputProps) {
+  const fontOverride = !value && placeholderFontSize != null
+    ? { fontSize: placeholderFontSize }
+    : undefined;
+
   return (
-    <View style={[styles.container, bright ? styles.bright : undefined, invalid ? styles.invalid : undefined]}>
+    <View
+      style={[styles.container, bright ? styles.bright : undefined, invalid ? styles.invalid : undefined]}
+    >
       <TextInput
         autoCapitalize="sentences"
         autoCorrect={false}
@@ -30,7 +49,14 @@ export function RoundedInput({
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={theme.colors.muted}
-        style={[styles.input, value ? styles.filledInput : undefined]}
+        editable={editable}
+        style={[
+          styles.input,
+          compact ? styles.compactInput : undefined,
+          value ? styles.filledInput : undefined,
+          compact && value ? styles.compactFilledInput : undefined,
+          fontOverride
+        ]}
         testID={testID}
         value={value}
       />
@@ -69,5 +95,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.medium,
     fontSize: 20,
     lineHeight: 24
+  },
+  compactInput: {
+    fontSize: 17,
+    lineHeight: 22
+  },
+  compactFilledInput: {
+    fontSize: 17,
+    lineHeight: 22
   }
 });

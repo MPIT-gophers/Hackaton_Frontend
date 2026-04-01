@@ -33,10 +33,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             <Text style={styles.emptyHeadline}>У вас на данный момент{`\n`}нет мероприятий</Text>
 
             <View style={styles.mascotWrap}>
-              <View style={styles.shadowWrap}>
-                <MascotShadowIcon />
-              </View>
               <Image source={imageAssets.mascot} style={styles.mascotImage} />
+              <MascotShadowIcon />
             </View>
           </View>
 
@@ -65,15 +63,17 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
 const styles = StyleSheet.create({
   profileButton: {
-    alignSelf: 'flex-start'
+    alignSelf: 'flex-start',
+    marginTop: 2
   },
   emptyWrap: {
     flex: 1,
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    paddingBottom: 2
   },
   emptyHero: {
     alignItems: 'center',
-    marginTop: 165
+    marginTop: 176
   },
   emptyHeadline: {
     color: theme.colors.text,
@@ -87,16 +87,14 @@ const styles = StyleSheet.create({
   },
   mascotWrap: {
     alignItems: 'center',
-    marginTop: 42,
+    marginTop: 24,
     width: '100%'
   },
-  shadowWrap: {
-    marginBottom: -28,
-    transform: [{ scale: 0.84 }]
-  },
   mascotImage: {
-    height: 188,
-    width: 190
+    height: 180,
+    marginBottom: -30,
+    width: 190,
+    zIndex: 1
   },
   filledWrap: {
     flex: 1,

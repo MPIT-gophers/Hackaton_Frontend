@@ -14,7 +14,6 @@ import { getSelectedVenue } from '../utils/venueRanking';
 
 type EventSummaryScreenProps = NativeStackScreenProps<RootStackParamList, 'EventSummary'>;
 
-const SUMMARY_CARD_HEIGHT = 406;
 const SUMMARY_MEDIA_HEIGHT = 190;
 
 type SummaryActionButtonProps = {
@@ -90,7 +89,10 @@ export function EventSummaryScreen({ navigation }: EventSummaryScreenProps) {
       return;
     }
 
-    navigation.goBack();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }]
+    });
   };
 
   return (
@@ -107,7 +109,16 @@ export function EventSummaryScreen({ navigation }: EventSummaryScreenProps) {
 
       <View style={styles.actions}>
         <SummaryActionButton label="Поменять заведение" onPress={() => navigation.navigate('VenuesList')} testID="event-summary-change-venue-button" />
-        <SummaryActionButton label="Изменить параметры" onPress={() => navigation.navigate('EventForm')} testID="event-summary-edit-params-button" />
+        <SummaryActionButton
+          label="Изменить параметры"
+          onPress={() =>
+            navigation.navigate('EventForm', {
+              mode: 'edit',
+              returnTo: 'EventSummary'
+            })
+          }
+          testID="event-summary-edit-params-button"
+        />
         <SummaryActionButton
           label="Пригласить участников"
           onPress={() => Alert.alert('Функция скоро появится')}
@@ -124,7 +135,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radii.xl,
-    height: SUMMARY_CARD_HEIGHT,
     marginTop: 34,
     overflow: 'hidden',
     ...theme.shadows.card
@@ -156,8 +166,7 @@ const styles = StyleSheet.create({
     textAlign: 'left'
   },
   body: {
-    flex: 1,
-    justifyContent: 'space-between',
+    gap: 14,
     padding: 15
   },
   bookingText: {
@@ -167,7 +176,7 @@ const styles = StyleSheet.create({
     lineHeight: 22
   },
   addressBlock: {
-    marginTop: 15
+    marginTop: 0
   },
   addressLine: {
     color: theme.colors.text,
@@ -187,13 +196,14 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.medium,
     fontSize: 17,
     lineHeight: 22,
-    marginTop: 15
+    marginTop: 0
   },
   ratingRow: {
     alignItems: 'center',
     alignSelf: 'flex-end',
     flexDirection: 'row',
-    gap: 2
+    gap: 2,
+    marginTop: 2
   },
   rating: {
     color: theme.colors.star,

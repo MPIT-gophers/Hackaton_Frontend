@@ -2,7 +2,12 @@ export type RootStackParamList = {
   Auth: undefined;
   Home: undefined;
   Profile: undefined;
-  EventForm: undefined;
+  EventForm:
+    | {
+        mode?: 'create' | 'edit';
+        returnTo?: 'EventSummary' | 'VenuesList';
+      }
+    | undefined;
   VenuesList: undefined;
   VenueDetails: undefined;
   EventSummary: undefined;
