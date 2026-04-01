@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Организатор мероприятий",
+    "slug": "hackaton-template",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#e5effe"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
