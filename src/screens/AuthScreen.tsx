@@ -1,4 +1,4 @@
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ScreenContainer } from '../components/ScreenContainer';
@@ -8,6 +8,7 @@ import { imageAssets } from '../data/assets';
 import { theme } from '../theme';
 
 const AUTH_HERO_ASPECT_RATIO = 451 / 248;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export function AuthScreen() {
   const { state, actions } = useAppContext();
@@ -16,9 +17,8 @@ export function AuthScreen() {
   const isError = state.session.status === 'error';
 
   return (
-    <ScreenContainer contentStyle={styles.content}>
+    <ScreenContainer contentStyle={styles.content} scrollable>
       <View style={styles.topSection}>
-        <Text style={styles.heroText}>Добро пожаловать!</Text>
         <Image resizeMode="contain" source={imageAssets.authHero} style={styles.heroImage} />
 
         <View style={styles.featureList}>
@@ -82,8 +82,9 @@ const styles = StyleSheet.create({
   },
   heroImage: {
     aspectRatio: AUTH_HERO_ASPECT_RATIO,
-    marginTop: 30,
-    width: '100%'
+    marginTop: 16,
+    maxHeight: SCREEN_HEIGHT * 0.3,
+    width: '65%'
   },
   featureList: {
     alignSelf: 'flex-start',
