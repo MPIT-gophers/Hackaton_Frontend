@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
-import { Linking, Platform } from 'react-native';
+import { AppState as RNAppState, Linking, Platform } from 'react-native';
 
 import {
   AppSession,
@@ -490,9 +490,16 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       void pollSession();
     }, POLLING_INTERVAL_MS);
 
+    const appStateSubscription = RNAppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        void pollSession();
+      }
+    });
+
     return () => {
       isActive = false;
       clearInterval(intervalId);
+      appStateSubscription.remove();
     };
   }, [deps.authService, deps.profileRepository, localProfileSnapshot, state.session.pendingSessionId, state.session.status]);
 

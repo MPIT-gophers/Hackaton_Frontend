@@ -1,5 +1,5 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Linking, Text } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { AppState as RNAppState, Linking, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppProvider, createInitialState, useAppContext } from '../src/context/AppContext';
@@ -208,5 +208,59 @@ describe('screen flow', () => {
 
     expect(screen.getByText('Ритц')).toBeTruthy();
     expect(screen.getByText('День рождение')).toBeTruthy();
+  });
+
+  it('completes auth when app returns to foreground from background', async () => {
+    let appStateCallback: ((state: string) => void) | null = null;
+    const removeSpy = jest.fn();
+
+    jest.spyOn(RNAppState, 'addEventListener').mockImplementation((_type, listener) => {
+      appStateCallback = listener as (state: string) => void;
+      return { remove: removeSpy } as any;
+    });
+
+    const authService = createAuthServiceMock({
+      getMaxSessionStatus: jest.fn().mockResolvedValue('pending')
+    });
+
+    const screen = render(
+      <SafeAreaProvider>
+        <AppProvider
+          dependencies={{ authService }}
+          initialState={createInitialState({
+            isHydrated: true,
+            session: {
+              status: 'waiting_confirmation',
+              pendingSessionId: 'session-1',
+              pendingMaxLink: 'https://max.ru/session-1',
+              expiresAt: '2099-04-07T14:59:39Z'
+            }
+          })}
+          skipHydration
+        >
+          <AuthScreen />
+          <SessionProbe />
+        </AppProvider>
+      </SafeAreaProvider>
+    );
+
+    await waitFor(() => {
+      expect(authService.getMaxSessionStatus).toHaveBeenCalled();
+    });
+
+    expect(screen.getByText('signed-out')).toBeTruthy();
+    expect(appStateCallback).not.toBeNull();
+
+    (authService.getMaxSessionStatus as jest.Mock).mockResolvedValue('completed');
+
+    await act(async () => {
+      appStateCallback!('active');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('signed-in')).toBeTruthy();
+    });
+
+    expect(authService.exchangeMaxSession).toHaveBeenCalledWith('session-1');
   });
 });
