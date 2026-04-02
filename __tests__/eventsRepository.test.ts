@@ -78,16 +78,16 @@ describe('eventsRepository', () => {
         body: JSON.stringify({
           city: 'Якутск',
           budget: '50000',
-          date: '05.04.2026',
+          date: '2026-04-05',
           time: '14:00',
           scale: 12,
-          energy: 'День рождения, Ресторан, Центр, Уютный'
+          energy: 'День рождения'
         })
       })
     );
   });
 
-  it('uses double-prefix wishlist and photos routes', async () => {
+  it('uses correct wishlist and photos routes', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       text: async () => JSON.stringify({ items: [] })
@@ -99,12 +99,12 @@ describe('eventsRepository', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'https://mpit-bot.kostya1024.ru/api/v1/api/v1/events/123/wishlist',
+      'https://mpit-bot.kostya1024.ru/api/v1/events/123/wishlist',
       expect.any(Object)
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      'https://mpit-bot.kostya1024.ru/api/v1/api/v1/events/123/photos',
+      'https://mpit-bot.kostya1024.ru/api/v1/events/123/photos',
       expect.any(Object)
     );
   });
@@ -125,7 +125,7 @@ describe('eventsRepository', () => {
     ]);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://mpit-bot.kostya1024.ru/api/v1/api/v1/events/123/photos/upload',
+      'https://mpit-bot.kostya1024.ru/api/v1/events/123/photos/upload',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({

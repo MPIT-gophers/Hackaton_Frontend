@@ -248,24 +248,13 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async createEvent(accessToken, draft) {
-      const energy = [draft.occasion, draft.placeType, draft.location, draft.wishes]
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join(', ') || 'Любой';
-
-      let formattedDate = draft.date.trim();
-      const dateParts = formattedDate.split('-');
-      if (dateParts.length === 3) {
-        formattedDate = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
-      }
-
       const requestBody = {
         city: draft.city.trim(),
         budget: draft.budget.trim(),
-        date: formattedDate,
+        date: draft.date.trim(),
         time: '14:00',
         scale: Number.parseInt(draft.guests, 10) || 0,
-        energy
+        energy: draft.occasion.trim()
       };
 
       logger.debug('EventsRepository', 'Create event payload prepared', {
@@ -333,7 +322,7 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async getWishlist(accessToken, eventId) {
-      const payload = await request<WishlistResponse>(`/api/v1/events/${eventId}/wishlist`, {
+      const payload = await request<WishlistResponse>(`/events/${eventId}/wishlist`, {
         accessToken
       });
 
@@ -341,7 +330,7 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async submitWishlistIdea(accessToken, eventId, text) {
-      const payload = await request<WishlistResponse>(`/api/v1/events/${eventId}/wishlist/ideas`, {
+      const payload = await request<WishlistResponse>(`/events/${eventId}/wishlist/ideas`, {
         method: 'POST',
         accessToken,
         body: {
@@ -353,7 +342,7 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async parseWishlistText(accessToken, eventId, text) {
-      const payload = await request<WishlistResponse>(`/api/v1/events/${eventId}/wishlist/parse`, {
+      const payload = await request<WishlistResponse>(`/events/${eventId}/wishlist/parse`, {
         method: 'POST',
         accessToken,
         body: {
@@ -365,7 +354,7 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async bookWishlistItem(accessToken, eventId, itemId) {
-      const payload = await request<WishlistResponse>(`/api/v1/events/${eventId}/wishlist/${itemId}/book`, {
+      const payload = await request<WishlistResponse>(`/events/${eventId}/wishlist/${itemId}/book`, {
         method: 'POST',
         accessToken
       });
@@ -374,7 +363,7 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async fundWishlistItem(accessToken, eventId, itemId, amount) {
-      const payload = await request<WishlistResponse>(`/api/v1/events/${eventId}/wishlist/${itemId}/fund`, {
+      const payload = await request<WishlistResponse>(`/events/${eventId}/wishlist/${itemId}/fund`, {
         method: 'POST',
         accessToken,
         body: {
@@ -386,7 +375,7 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async getEventPhotos(accessToken, eventId) {
-      const payload = await request<PhotosResponse>(`/api/v1/events/${eventId}/photos`, {
+      const payload = await request<PhotosResponse>(`/events/${eventId}/photos`, {
         accessToken
       });
 
@@ -395,7 +384,7 @@ export function createEventsRepository(): EventsRepository {
 
     async uploadEventPhotos(accessToken, eventId, photos) {
       const formData = createPhotosFormData(photos.slice(0, 10));
-      const payload = await requestFormData<PhotosResponse>(`/api/v1/events/${eventId}/photos/upload`, {
+      const payload = await requestFormData<PhotosResponse>(`/events/${eventId}/photos/upload`, {
         method: 'POST',
         accessToken,
         body: formData

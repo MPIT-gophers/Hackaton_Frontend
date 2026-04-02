@@ -15,4 +15,6 @@ export type RootStackParamList = {
   EventGuests: { eventId: string };
   EventWishlist: { eventId: string };
   EventPhotos: { eventId: string };
+  AgentChatWelcome: undefined;
+  AgentChatConversation: undefined;
 };

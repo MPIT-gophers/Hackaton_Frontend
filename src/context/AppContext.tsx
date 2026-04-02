@@ -31,7 +31,8 @@ import {
   getBackendErrorMessage,
   isUnauthorizedBackendError
 } from '../services/backendClient';
-import { createProfileService, profileService as defaultProfileService, ProfileService } from '../services/profileService';
+import { ProfileService } from '../services/profileService';
+import { mockProfileService as defaultProfileService } from '../services/mockProfileService';
 import { venuesRepository as defaultVenuesRepository, VenuesRepository } from '../repositories/venuesRepository';
 import { extractVenuesFromEvent, getSelectedVenue, hasEventLocations } from '../utils/venueRanking';
 import { validateEventDraft } from '../utils/validation';
@@ -850,6 +851,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       logger.info('AppContext', 'Event created for venues', {
         eventId: createdEvent.id
       });
+      dispatch({ type: 'set-venues', venues: [] });
       dispatch({ type: 'set-pending-event-id', eventId: createdEvent.id });
 
       const venues = extractVenuesFromEvent(createdEvent);
@@ -882,10 +884,12 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
 
       try {
         const event = await deps.eventsRepository.getEventById(accessToken, eventId);
+        const isReady = event.status.trim().toLowerCase() === 'ready';
 
-        if (!hasEventLocations(event)) {
+        if (!isReady || !hasEventLocations(event)) {
           logger.debug('AppContext', 'Event venues are not ready yet', {
-            eventId
+            eventId,
+            status: event.status
           });
           return { ready: false, venues: [] };
         }

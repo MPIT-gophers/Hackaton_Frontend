@@ -15,6 +15,25 @@ type VenuesListScreenProps = NativeStackScreenProps<RootStackParamList, 'VenuesL
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 90_000;
 
+function formatVenueCount(count: number) {
+  const normalizedCount = Math.abs(count) % 100;
+  const lastDigit = normalizedCount % 10;
+
+  if (normalizedCount >= 11 && normalizedCount <= 14) {
+    return `${count} мест`;
+  }
+
+  if (lastDigit === 1) {
+    return `${count} место`;
+  }
+
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return `${count} места`;
+  }
+
+  return `${count} мест`;
+}
+
 export function VenuesListScreen({ navigation }: VenuesListScreenProps) {
   const { state, actions } = useAppContext();
   const [isLoading, setIsLoading] = useState(() => state.venues.length === 0);
@@ -121,6 +140,10 @@ export function VenuesListScreen({ navigation }: VenuesListScreenProps) {
     <ScreenContainer scrollable>
       <HeaderBack onPress={navigation.goBack} title="Список заведений" />
 
+      <Text style={styles.summary} testID="venues-list-summary">
+        Найдено {formatVenueCount(state.venues.length)}
+      </Text>
+
       <View style={styles.list}>
         {state.venues.map((venue) => (
           <VenueCard
@@ -139,9 +162,16 @@ export function VenuesListScreen({ navigation }: VenuesListScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  summary: {
+    color: theme.colors.text,
+    fontFamily: theme.typography.medium,
+    fontSize: 20,
+    lineHeight: 24,
+    marginTop: 30
+  },
   list: {
     gap: 15,
-    marginTop: 30
+    marginTop: 15
   },
   centerState: {
     alignItems: 'center',

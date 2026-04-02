@@ -1,3 +1,4 @@
+import { VENUES } from '../data/venues';
 import { BackendEvent, BackendLocation, EventDraft, Venue, VenueQuery } from '../domain/types';
 
 function buildVenueQueryString(query: VenueQuery): string {
@@ -41,18 +42,20 @@ export function getSelectedVenue(
 }
 
 function mapLocationToVenue(location: BackendLocation, index: number): Venue {
+  const catalogVenue = VENUES.find((venue) => venue.id === location.id);
+
   return {
     id: location.id,
-    name: location.title || 'Заведение',
-    summary: location.aiComment,
-    rating: location.aiScore || '—',
-    imageKey: index % 2 === 0 ? 'venueCover1' : 'venueCover2',
-    addressLine: location.address,
-    address: location.address,
-    schedule: '',
-    averageCheck: '',
-    cuisine: '',
-    tags: []
+    name: location.title || catalogVenue?.name || 'Заведение',
+    summary: location.aiComment || catalogVenue?.summary || '',
+    rating: location.aiScore || catalogVenue?.rating || '—',
+    imageKey: catalogVenue?.imageKey ?? (index % 2 === 0 ? 'venueCover1' : 'venueCover2'),
+    addressLine: catalogVenue?.addressLine || location.address,
+    address: catalogVenue?.address || location.address,
+    schedule: catalogVenue?.schedule || '',
+    averageCheck: catalogVenue?.averageCheck || '',
+    cuisine: catalogVenue?.cuisine || '',
+    tags: catalogVenue?.tags || []
   };
 }
 

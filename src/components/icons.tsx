@@ -70,3 +70,17 @@ export function MascotShadowIcon() {
     </Svg>
   );
 }
+
+export function SendIcon({ size = 24, color = '#EFF4FD' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 12L4.396 6.563C4.223 5.007 5.825 3.864 7.24 4.535L19.184 10.193C20.709 10.915 20.709 13.085 19.184 13.807L7.24 19.466C5.825 20.136 4.223 18.994 4.396 17.438L5 12ZM5 12H12"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

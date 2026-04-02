@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAppContext } from '../context/AppContext';
 import { AuthScreen } from '../screens/AuthScreen';
+import { AgentChatConversationScreen } from '../screens/AgentChatConversationScreen';
+import { AgentChatWelcomeScreen } from '../screens/AgentChatWelcomeScreen';
 import { EventDetailsScreen } from '../screens/EventDetailsScreen';
 import { EventFormScreen } from '../screens/EventFormScreen';
 import { EventGuestsScreen } from '../screens/EventGuestsScreen';
@@ -46,6 +48,8 @@ export function RootNavigator() {
             <Stack.Screen name="EventPhotos" component={EventPhotosScreen} />
           </>
         )}
+        <Stack.Screen name="AgentChatWelcome" component={AgentChatWelcomeScreen} />
+        <Stack.Screen name="AgentChatConversation" component={AgentChatConversationScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

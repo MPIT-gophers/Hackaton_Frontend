@@ -15,7 +15,10 @@ export const theme = {
     shadow: 'rgba(165, 165, 165, 0.25)',
     primaryShadow: 'rgba(87, 165, 244, 0.25)',
     mascotShadow: '#E8EEF9',
-    welcomeBadge: '#E7F0FE'
+    welcomeBadge: '#E7F0FE',
+    chatBubbleOutgoing: '#E2EEEA',
+    chatInputPlaceholder: 'rgba(30, 30, 30, 0.69)',
+    chatSurfaceShadow: 'rgba(213, 213, 213, 0.2)'
   },
   radii: {
     xl: 26,
@@ -28,7 +31,10 @@ export const theme = {
     screenBottomOffset: 40,
     fieldGap: 10,
     sectionGap: 30,
-    cardGap: 20
+    cardGap: 20,
+    floatingChatRight: 20,
+    floatingChatBottom: 20,
+    floatingChatReserve: 96
   },
   typography: {
     regular: 'Inter_400Regular',
