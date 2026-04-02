@@ -1,5 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { Alert, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppProvider, createInitialState, useAppContext } from '../src/context/AppContext';
@@ -143,6 +143,65 @@ describe('event summary flow', () => {
     expect(navigation.navigate).toHaveBeenCalledWith('EventForm', {
       mode: 'edit',
       returnTo: 'EventSummary'
+    });
+  });
+
+  it('shows an alert when confirmBooking rejects with an error', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const navigation = { goBack: jest.fn(), navigate: jest.fn(), reset: jest.fn() } as any;
+    const eventsRepository = createEventsRepositoryMock({
+      createEvent: jest.fn().mockRejectedValue(new Error('Network failure'))
+    });
+
+    const screen = render(
+      <SafeAreaProvider>
+        <AppProvider dependencies={{ eventsRepository }} initialState={baseState} skipHydration>
+          <EventSummaryScreen navigation={navigation} route={{ key: 'EventSummary', name: 'EventSummary' }} />
+        </AppProvider>
+      </SafeAreaProvider>
+    );
+
+    fireEvent.press(screen.getByTestId('event-summary-save-button'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('Ошибка', expect.stringContaining(''));
+    });
+
+    expect(navigation.reset).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
+  it('disables the save button while saving is in progress', async () => {
+    let resolveCreate: (value: BackendEvent) => void;
+    const createPromise = new Promise<BackendEvent>((resolve) => {
+      resolveCreate = resolve;
+    });
+
+    const navigation = { goBack: jest.fn(), navigate: jest.fn(), reset: jest.fn() } as any;
+    const eventsRepository = createEventsRepositoryMock({
+      createEvent: jest.fn().mockReturnValue(createPromise)
+    });
+
+    const screen = render(
+      <SafeAreaProvider>
+        <AppProvider dependencies={{ eventsRepository }} initialState={baseState} skipHydration>
+          <EventSummaryScreen navigation={navigation} route={{ key: 'EventSummary', name: 'EventSummary' }} />
+        </AppProvider>
+      </SafeAreaProvider>
+    );
+
+    fireEvent.press(screen.getByTestId('event-summary-save-button'));
+
+    expect(eventsRepository.createEvent).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(screen.getByTestId('event-summary-save-button'));
+    expect(eventsRepository.createEvent).toHaveBeenCalledTimes(1);
+
+    resolveCreate!(createBackendEvent());
+
+    await waitFor(() => {
+      expect(navigation.reset).toHaveBeenCalled();
     });
   });
 });

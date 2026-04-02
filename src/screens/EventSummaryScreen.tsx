@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -76,6 +77,7 @@ function VenueSummaryCard({ venueName, venueImage, bookingDate, addressLine, add
 
 export function EventSummaryScreen({ navigation }: EventSummaryScreenProps) {
   const { state, actions } = useAppContext();
+  const [isSaving, setIsSaving] = useState(false);
   const venue = getSelectedVenue(state.venues, state.draft, state.selectedVenueId);
 
   if (!venue) {
@@ -83,16 +85,30 @@ export function EventSummaryScreen({ navigation }: EventSummaryScreenProps) {
   }
 
   const handleSave = async () => {
-    const event = await actions.confirmBooking();
-
-    if (!event) {
+    if (isSaving) {
       return;
     }
 
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Home' }]
-    });
+    setIsSaving(true);
+
+    try {
+      const event = await actions.confirmBooking();
+
+      if (!event) {
+        Alert.alert('Ошибка', 'Не удалось сохранить мероприятие. Попробуйте снова.');
+        return;
+      }
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }]
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Произошла неизвестная ошибка';
+      Alert.alert('Ошибка', message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -126,7 +142,7 @@ export function EventSummaryScreen({ navigation }: EventSummaryScreenProps) {
         />
       </View>
 
-      <PrimaryButton onPress={handleSave} style={styles.saveButton} testID="event-summary-save-button" title="Сохранить" />
+      <PrimaryButton disabled={isSaving} loading={isSaving} onPress={handleSave} style={styles.saveButton} testID="event-summary-save-button" title="Сохранить" />
     </ScreenContainer>
   );
 }

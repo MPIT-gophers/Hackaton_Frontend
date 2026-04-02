@@ -78,9 +78,10 @@ describe('eventsRepository', () => {
         body: JSON.stringify({
           city: 'Якутск',
           budget: '50000',
-          event_date: '2026-04-05',
-          event_time: '14:00',
-          expected_guest_count: 12
+          date: '2026-04-05',
+          time: '14:00',
+          scale: 12,
+          energy: ''
         })
       })
     );

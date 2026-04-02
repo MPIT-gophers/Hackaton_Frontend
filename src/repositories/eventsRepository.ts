@@ -191,9 +191,10 @@ export function createEventsRepository(): EventsRepository {
         body: {
           city: draft.city.trim(),
           budget: draft.budget.trim(),
-          event_date: draft.date.trim(),
-          event_time: '14:00',
-          expected_guest_count: Number.parseInt(draft.guests, 10) || 0
+          date: draft.date.trim(),
+          time: '14:00',
+          scale: Number.parseInt(draft.guests, 10) || 0,
+          energy: ''
         }
       });
 
