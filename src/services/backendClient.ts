@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger';
+
 const API_BASE_URL = 'https://mpit-bot.kostya1024.ru/api/v1';
 
 type RequestOptions = {
@@ -72,6 +74,20 @@ function isFormData(value: unknown): value is FormData {
   return typeof FormData !== 'undefined' && value instanceof FormData;
 }
 
+function summarizeRequestBody(body: RequestOptions['body']) {
+  if (!body) {
+    return null;
+  }
+
+  if (isFormData(body)) {
+    return {
+      type: 'FormData'
+    };
+  }
+
+  return body;
+}
+
 async function parseResponse(response: Response) {
   const text = await response.text();
 
@@ -88,6 +104,8 @@ async function parseResponse(response: Response) {
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const isMultipartBody = isFormData(options.body);
+  const method = options.method ?? 'GET';
+  const url = buildUrl(path);
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Cache-Control': 'no-cache',
@@ -102,10 +120,20 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const startedAt = Date.now();
+
+  logger.debug('BackendClient', 'Request started', {
+    method,
+    path,
+    url,
+    hasAccessToken: Boolean(options.accessToken),
+    headers,
+    body: summarizeRequestBody(options.body)
+  });
 
   try {
-    const response = await fetch(buildUrl(path), {
-      method: options.method ?? 'GET',
+    const response = await fetch(url, {
+      method,
       headers,
       body: options.body ? (isFormData(options.body) ? options.body : JSON.stringify(options.body)) : undefined,
       signal: controller.signal
@@ -116,12 +144,44 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     const payload = await parseResponse(response);
 
     if (!response.ok) {
-      throw new BackendError(extractErrorMessage(payload) ?? 'Request failed', response.status, payload);
+      const backendError = new BackendError(extractErrorMessage(payload) ?? 'Request failed', response.status, payload);
+
+      logger.warn('BackendClient', 'Request failed', {
+        method,
+        path,
+        url,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+        error: backendError,
+        details: payload
+      });
+
+      throw backendError;
     }
+
+    logger.info('BackendClient', 'Request succeeded', {
+      method,
+      path,
+      url,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      payload
+    });
 
     return payload as T;
   } catch (error) {
     clearTimeout(timeoutId);
+
+    if (!(error instanceof BackendError)) {
+      logger.error('BackendClient', 'Request crashed before response completed', {
+        method,
+        path,
+        url,
+        durationMs: Date.now() - startedAt,
+        error
+      });
+    }
+
     throw error;
   }
 }

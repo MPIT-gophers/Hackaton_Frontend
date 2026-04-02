@@ -89,6 +89,19 @@ function createBackendEvent(): BackendEvent {
   };
 }
 
+function createHomeNavigationMock(onFocusRegistered?: (callback: () => void) => void) {
+  return {
+    navigate: jest.fn(),
+    addListener: jest.fn((eventName: string, callback: () => void) => {
+      if (eventName === 'focus') {
+        onFocusRegistered?.(callback);
+      }
+
+      return jest.fn();
+    })
+  } as any;
+}
+
 function SessionProbe() {
   const { state } = useAppContext();
 
@@ -194,7 +207,7 @@ describe('screen flow', () => {
   });
 
   it('renders empty home variant without events', () => {
-    const navigation = { navigate: jest.fn() } as any;
+    const navigation = createHomeNavigationMock();
     const screen = render(
       <SafeAreaProvider>
         <AppProvider
@@ -220,7 +233,7 @@ describe('screen flow', () => {
   });
 
   it('renders filled home variant with existing events', () => {
-    const navigation = { navigate: jest.fn() } as any;
+    const navigation = createHomeNavigationMock();
     const event = createBackendEvent();
     const screen = render(
       <SafeAreaProvider>
@@ -246,6 +259,57 @@ describe('screen flow', () => {
 
     expect(screen.getByText('Якутск')).toBeTruthy();
     expect(screen.getByText('День рождение')).toBeTruthy();
+  });
+
+  it('refreshes my events when home regains focus', async () => {
+    let focusListener: (() => void) | undefined;
+    const navigation = createHomeNavigationMock((callback) => {
+      focusListener = callback;
+    });
+    const event = createBackendEvent();
+    const eventsRepository = createEventsRepositoryMock({
+      listMyEvents: jest.fn().mockResolvedValue([event])
+    });
+    const screen = render(
+      <SafeAreaProvider>
+        <AppProvider
+          dependencies={{ eventsRepository }}
+          initialState={createInitialState({
+            isHydrated: true,
+            session: {
+              isAuthenticated: true,
+              status: 'authenticated',
+              accessToken: 'token-1',
+              tokenType: 'Bearer',
+              expiresAt: '2099-01-01T00:00:00Z'
+            },
+            venues: VENUES
+          })}
+          skipHydration
+        >
+          <HomeScreen navigation={navigation} route={{ key: 'Home', name: 'Home' }} />
+        </AppProvider>
+      </SafeAreaProvider>
+    );
+
+    expect(screen.getByText('У вас на данный момент\nнет мероприятий')).toBeTruthy();
+    expect(focusListener).toBeDefined();
+
+    await act(async () => {
+      focusListener?.();
+    });
+
+    expect(eventsRepository.listMyEvents).not.toHaveBeenCalled();
+
+    await act(async () => {
+      focusListener?.();
+    });
+
+    await waitFor(() => {
+      expect(eventsRepository.listMyEvents).toHaveBeenCalledWith('token-1');
+      expect(screen.getByText('Якутск')).toBeTruthy();
+      expect(screen.getByText('День рождение')).toBeTruthy();
+    });
   });
 
   it('completes auth when app returns to foreground from background', async () => {

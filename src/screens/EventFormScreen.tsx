@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
@@ -17,6 +17,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { useAppContext } from '../context/AppContext';
 import { RootStackParamList } from '../navigation/types';
 import { theme } from '../theme';
+import { logger } from '../utils/logger';
 
 type EventFormScreenProps = NativeStackScreenProps<RootStackParamList, 'EventForm'>;
 
@@ -53,6 +54,7 @@ export function EventFormScreen({ navigation, route }: EventFormScreenProps) {
   const { state, actions } = useAppContext();
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [fieldsWidth, setFieldsWidth] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
 
   const isEditMode = route.params?.mode === 'edit';
   const actionTitle = isEditMode ? 'Сохранить' : 'Продолжить';
@@ -89,8 +91,8 @@ export function EventFormScreen({ navigation, route }: EventFormScreenProps) {
       actions.updateDraftField(field, value.replace(/\D+/g, ''));
     };
 
-  const handleDateChange = (_event: DateTimePickerEvent, date?: Date) => {
-    setIsDatePickerVisible(false);
+  const handleDateChange = (_event: any, date?: Date) => {
+    setIsDatePickerVisible(Platform.OS === 'ios');
 
     if (!date) {
       return;
@@ -102,14 +104,54 @@ export function EventFormScreen({ navigation, route }: EventFormScreenProps) {
     actions.updateDraftField('date', `${year}-${month}-${day}`);
   };
 
-  const handleContinue = () => {
-    if (actions.validateDraft()) {
-      if (isEditMode) {
-        navigation.goBack();
-        return;
-      }
+  const handleDismiss = () => {
+    setIsDatePickerVisible(false);
+  };
 
+  const handleContinue = async () => {
+    logger.info('EventFormScreen', 'Continue pressed', {
+      isEditMode,
+      draft: {
+        occasion: state.draft.occasion,
+        city: state.draft.city,
+        date: state.draft.date,
+        budget: state.draft.budget,
+        guests: state.draft.guests,
+        hasPlaceType: Boolean(state.draft.placeType.trim()),
+        hasLocation: Boolean(state.draft.location.trim()),
+        hasWishes: Boolean(state.draft.wishes.trim())
+      }
+    });
+
+    if (!actions.validateDraft()) {
+      logger.warn('EventFormScreen', 'Validation failed', {
+        invalidFields: Object.keys(state.draftErrors)
+      });
+      return;
+    }
+
+    if (isEditMode) {
+      logger.info('EventFormScreen', 'Edit mode save completed, returning back');
+      navigation.goBack();
+      return;
+    }
+
+    if (isCreating) {
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      await actions.createEventForVenues();
+      logger.info('EventFormScreen', 'Event draft submitted successfully, opening venues list');
       navigation.navigate('VenuesList');
+    } catch (error) {
+      logger.error('EventFormScreen', 'Failed to continue to venues', error);
+      const message = error instanceof Error ? error.message : 'Не удалось создать мероприятие';
+      Alert.alert('Ошибка', message);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -197,10 +239,10 @@ export function EventFormScreen({ navigation, route }: EventFormScreenProps) {
         <RoundedTextArea onChangeText={(value) => actions.updateDraftField('wishes', value)} placeholder="" testID="field-wishes" value={state.draft.wishes} />
 
         {isDatePickerVisible ? (
-          <DateTimePicker display="default" mode="date" onChange={handleDateChange} value={selectedDate} />
+          <DateTimePicker display="default" mode="date" onDismiss={handleDismiss} onValueChange={handleDateChange} value={selectedDate} />
         ) : null}
 
-        <PrimaryButton onPress={handleContinue} style={styles.button} testID="event-form-continue-button" title={actionTitle} />
+        <PrimaryButton disabled={isCreating} loading={isCreating} onPress={handleContinue} style={styles.button} testID="event-form-continue-button" title={actionTitle} />
       </ScreenContainer>
     </KeyboardAvoidingView>
   );

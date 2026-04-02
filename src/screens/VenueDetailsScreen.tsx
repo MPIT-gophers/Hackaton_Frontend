@@ -47,7 +47,7 @@ export function VenueDetailsScreen({ navigation }: VenueDetailsScreenProps) {
     return null;
   }
 
-  const schedule = parseVenueSchedule(venue.schedule);
+  const schedule = venue.schedule ? parseVenueSchedule(venue.schedule) : null;
 
   return (
     <ScreenContainer scrollable>
@@ -60,31 +60,39 @@ export function VenueDetailsScreen({ navigation }: VenueDetailsScreenProps) {
         </View>
 
         <View style={styles.body}>
-          <Text style={styles.summary}>{venue.summary}</Text>
+          {venue.summary ? <Text style={styles.summary}>{venue.summary}</Text> : null}
 
-          <View style={styles.addressBlock}>
-            <Text style={styles.addressLine}>{venue.addressLine}</Text>
-            <Text style={styles.address}>{venue.address}</Text>
-          </View>
+          {venue.addressLine || venue.address ? (
+            <View style={styles.addressBlock}>
+              {venue.addressLine ? <Text style={styles.addressLine}>{venue.addressLine}</Text> : null}
+              {venue.address ? <Text style={styles.address}>{venue.address}</Text> : null}
+            </View>
+          ) : null}
 
-          <View style={styles.scheduleBlock}>
-            <Text style={styles.scheduleTitle}>{schedule.title}</Text>
-            {schedule.rows.map((row) => (
-              <View key={`${row.label}-${row.value}`} style={styles.scheduleRow}>
-                <Text style={styles.scheduleLabel}>{row.label}</Text>
-                <Text style={styles.scheduleValue}>{row.value}</Text>
-              </View>
-            ))}
-          </View>
+          {schedule ? (
+            <View style={styles.scheduleBlock}>
+              <Text style={styles.scheduleTitle}>{schedule.title}</Text>
+              {schedule.rows.map((row) => (
+                <View key={`${row.label}-${row.value}`} style={styles.scheduleRow}>
+                  <Text style={styles.scheduleLabel}>{row.label}</Text>
+                  <Text style={styles.scheduleValue}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Средний чек:</Text>
-            <Text style={styles.metaValue}>{venue.averageCheck}</Text>
-          </View>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Кухня:</Text>
-            <Text style={styles.metaValue}>{venue.cuisine}</Text>
-          </View>
+          {venue.averageCheck ? (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Средний чек:</Text>
+              <Text style={styles.metaValue}>{venue.averageCheck}</Text>
+            </View>
+          ) : null}
+          {venue.cuisine ? (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Кухня:</Text>
+              <Text style={styles.metaValue}>{venue.cuisine}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.ratingRow}>
             <Text style={styles.rating}>{venue.rating}</Text>

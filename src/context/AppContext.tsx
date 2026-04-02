@@ -33,8 +33,9 @@ import {
 } from '../services/backendClient';
 import { createProfileService, profileService as defaultProfileService, ProfileService } from '../services/profileService';
 import { venuesRepository as defaultVenuesRepository, VenuesRepository } from '../repositories/venuesRepository';
-import { getSelectedVenue } from '../utils/venueRanking';
+import { extractVenuesFromEvent, getSelectedVenue, hasEventLocations } from '../utils/venueRanking';
 import { validateEventDraft } from '../utils/validation';
+import { logger } from '../utils/logger';
 
 const AUTH_SESSION_EXPIRED_MESSAGE = 'Сессия входа истекла, начните заново';
 const AUTH_START_FAILED_MESSAGE = 'Не удалось начать вход. Попробуйте снова.';
@@ -68,6 +69,7 @@ export type AppState = {
   events: BackendEvent[];
   venues: Venue[];
   selectedVenueId: string | null;
+  pendingEventId: string | null;
 };
 
 type InitialStateOverrides = Partial<Omit<AppState, 'session' | 'profile'>> & {
@@ -91,7 +93,9 @@ type AppAction =
   | { type: 'reset-draft' }
   | { type: 'set-profile'; profile: UserProfile }
   | { type: 'set-events'; events: BackendEvent[] }
-  | { type: 'add-event'; event: BackendEvent };
+  | { type: 'add-event'; event: BackendEvent }
+  | { type: 'set-pending-event-id'; eventId: string | null }
+  | { type: 'set-venues'; venues: Venue[] };
 
 export type AppDependencies = {
   authService: AuthService;
@@ -155,6 +159,30 @@ function createWaitingSession(pendingSession: PendingAuthSession, errorMessage: 
   });
 }
 
+function summarizeSession(session: AppSession) {
+  return {
+    isAuthenticated: session.isAuthenticated,
+    status: session.status,
+    hasAccessToken: Boolean(session.accessToken),
+    hasPendingSession: Boolean(session.pendingSessionId),
+    hasPendingMaxLink: Boolean(session.pendingMaxLink),
+    expiresAt: session.expiresAt
+  };
+}
+
+function summarizeDraft(draft: EventDraft) {
+  return {
+    occasion: draft.occasion,
+    city: draft.city,
+    date: draft.date,
+    budget: draft.budget,
+    guests: draft.guests,
+    hasPlaceType: Boolean(draft.placeType.trim()),
+    hasLocation: Boolean(draft.location.trim()),
+    hasWishes: Boolean(draft.wishes.trim())
+  };
+}
+
 function getPendingSessionFromState(session: AppSession): PendingAuthSession | null {
   if (!session.pendingSessionId || !session.pendingMaxLink || !session.expiresAt) {
     return null;
@@ -193,7 +221,8 @@ export function createInitialState(overrides: InitialStateOverrides = {}): AppSt
     },
     events: overrides.events ?? [],
     venues: overrides.venues ?? [],
-    selectedVenueId: overrides.selectedVenueId ?? null
+    selectedVenueId: overrides.selectedVenueId ?? null,
+    pendingEventId: overrides.pendingEventId ?? null
   };
 }
 
@@ -280,7 +309,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         draft: createBlankDraft(),
         draftErrors: {},
-        selectedVenueId: null
+        selectedVenueId: null,
+        pendingEventId: null
       };
     case 'set-profile':
       return {
@@ -296,6 +326,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         events: [action.event, ...state.events]
+      };
+    case 'set-pending-event-id':
+      return {
+        ...state,
+        pendingEventId: action.eventId
+      };
+    case 'set-venues':
+      return {
+        ...state,
+        venues: action.venues
       };
     default:
       return state;
@@ -327,6 +367,8 @@ type AppContextValue = {
     toggleNotifications(): Promise<void>;
     updateAbout(about: string): Promise<void>;
     saveProfileIdentity(fullName: string, phone: string): Promise<void>;
+    createEventForVenues(): Promise<string>;
+    pollEventVenues(eventId: string): Promise<{ ready: boolean; venues: Venue[] }>;
     confirmBooking(): Promise<BackendEvent | null>;
     getEventDetails(eventId: string): Promise<BackendEvent>;
     getEventGuests(eventId: string, approvalStatus?: string): Promise<EventGuest[]>;
@@ -365,6 +407,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
   );
 
   const signOut = useCallback(async () => {
+    logger.info('AppContext', 'Sign out started');
     await Promise.allSettled([
       deps.authService.clearAuthSession(),
       deps.authService.clearPendingSession(),
@@ -372,6 +415,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     ]);
 
     dispatch({ type: 'auth-clear' });
+    logger.info('AppContext', 'Sign out completed');
   }, [deps.authService, deps.profileRepository]);
 
   const requireAccessToken = useCallback(() => {
@@ -385,21 +429,33 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
   const handleProtectedError = useCallback(
     async (error: unknown, fallback: string): Promise<never> => {
       if (isUnauthorizedBackendError(error)) {
+        logger.warn('AppContext', 'Protected request returned unauthorized, forcing sign out', {
+          fallback,
+          error
+        });
         await signOut();
         throw new Error(SESSION_EXPIRED_MESSAGE);
       }
 
+      logger.error('AppContext', 'Protected request failed', {
+        fallback,
+        error
+      });
       throw new Error(getBackendErrorMessage(error, fallback));
     },
     [signOut]
   );
 
   const openMaxApp = useCallback(async (pendingSession: PendingAuthSession) => {
+    logger.info('AppContext', 'Opening MAX app for pending auth session', {
+      pendingSession
+    });
     dispatch({ type: 'auth-waiting', pendingSession });
 
     try {
       await Linking.openURL(pendingSession.maxLink);
     } catch {
+      logger.error('AppContext', 'Failed to open MAX app');
       dispatch({
         type: 'auth-waiting',
         pendingSession,
@@ -416,6 +472,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     let isMounted = true;
 
     async function hydrate() {
+      logger.info('AppContext', 'Hydration started');
       const [authResult, profileResult, venuesResult] = await Promise.allSettled([
         deps.authService.restore(),
         deps.profileRepository.getLocalProfile(),
@@ -436,10 +493,22 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       let authSession = restoredAuth.auth;
       let events: BackendEvent[] = [];
 
+      logger.debug('AppContext', 'Hydration dependencies resolved', {
+        restoredAuth: {
+          hasAuth: Boolean(restoredAuth.auth),
+          hasPending: Boolean(restoredAuth.pending)
+        },
+        hasLocalProfile: profileResult.status === 'fulfilled',
+        venueCount: venues.length
+      });
+
       if (authSession) {
         try {
           events = await loadEventsForToken(authSession.tokens.accessToken);
         } catch (error) {
+          logger.warn('AppContext', 'Failed to load events during hydration', {
+            error
+          });
           if (isUnauthorizedBackendError(error)) {
             await deps.authService.clearAuthSession();
             authSession = null;
@@ -462,6 +531,12 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
           venues,
           session
         }
+      });
+
+      logger.info('AppContext', 'Hydration completed', {
+        session: summarizeSession(session),
+        eventCount: events.length,
+        venueCount: venues.length
       });
     }
 
@@ -488,6 +563,9 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       isRequestInFlight = true;
 
       try {
+        logger.debug('AppContext', 'Polling MAX auth session status', {
+          pendingSessionId: state.session.pendingSessionId
+        });
         const status = await deps.authService.getMaxSessionStatus(state.session.pendingSessionId!);
 
         if (!isActive) {
@@ -495,10 +573,16 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         }
 
         if (status === 'pending') {
+          logger.debug('AppContext', 'MAX auth session still pending', {
+            pendingSessionId: state.session.pendingSessionId
+          });
           return;
         }
 
         if (status === 'expired') {
+          logger.warn('AppContext', 'MAX auth session expired', {
+            pendingSessionId: state.session.pendingSessionId
+          });
           await deps.authService.clearPendingSession();
 
           if (isActive) {
@@ -512,6 +596,9 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         }
 
         dispatch({ type: 'auth-exchanging' });
+        logger.info('AppContext', 'MAX auth session completed, exchanging tokens', {
+          pendingSessionId: state.session.pendingSessionId
+        });
 
         const authSession = await deps.authService.exchangeMaxSession(state.session.pendingSessionId!);
         const events = await loadEventsForToken(authSession.tokens.accessToken).catch(() => []);
@@ -526,12 +613,20 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
           profile: deps.profileRepository.mergeProfile(authSession.user, localProfileSnapshot),
           events
         });
+
+        logger.info('AppContext', 'MAX auth session exchanged successfully', {
+          session: summarizeSession(createAuthenticatedSession(authSession)),
+          eventCount: events.length
+        });
       } catch (error) {
         if (!isActive) {
           return;
         }
 
         if (isExpiredAuthError(error)) {
+          logger.warn('AppContext', 'MAX auth exchange failed because session expired', {
+            error
+          });
           await deps.authService.clearPendingSession();
           dispatch({
             type: 'auth-error',
@@ -541,6 +636,9 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         }
 
         if (isAlreadyExchangedError(error)) {
+          logger.warn('AppContext', 'MAX auth session was already exchanged, restoring persisted auth', {
+            error
+          });
           await deps.authService.clearPendingSession();
           const restoredAuth = await deps.authService.restore();
 
@@ -552,10 +650,17 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
               profile: deps.profileRepository.mergeProfile(restoredAuth.auth.user, localProfileSnapshot),
               events
             });
+            logger.info('AppContext', 'Persisted auth restored after already-exchanged response', {
+              session: summarizeSession(createAuthenticatedSession(restoredAuth.auth)),
+              eventCount: events.length
+            });
             return;
           }
         }
 
+        logger.error('AppContext', 'MAX auth polling or exchange failed', {
+          error
+        });
         await deps.authService.clearPendingSession();
         dispatch({
           type: 'auth-error',
@@ -591,16 +696,21 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
 
   const signIn = useCallback(async () => {
     if (Platform.OS === 'web') {
+      logger.warn('AppContext', 'MAX auth requested on unsupported web platform');
       dispatch({ type: 'auth-error', errorMessage: MOBILE_ONLY_AUTH_MESSAGE });
       return;
     }
 
+    logger.info('AppContext', 'Sign in started');
     dispatch({ type: 'auth-start' });
 
     try {
       const pendingSession = await deps.authService.startMaxAuth();
       await openMaxApp(pendingSession);
     } catch (error) {
+      logger.error('AppContext', 'Failed to start sign in', {
+        error
+      });
       dispatch({
         type: 'auth-error',
         errorMessage: getBackendErrorMessage(error, AUTH_START_FAILED_MESSAGE)
@@ -609,6 +719,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
   }, [deps.authService, openMaxApp]);
 
   const retryAuth = useCallback(async () => {
+    logger.info('AppContext', 'Retrying auth flow');
     await deps.authService.clearPendingSession();
     dispatch({ type: 'auth-clear' });
     await signIn();
@@ -618,18 +729,26 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     const pendingSession = getPendingSessionFromState(state.session);
 
     if (!pendingSession) {
+      logger.warn('AppContext', 'Reopen MAX requested without pending session', {
+        session: summarizeSession(state.session)
+      });
       return;
     }
 
+    logger.info('AppContext', 'Reopening MAX app');
     await openMaxApp(pendingSession);
   }, [openMaxApp, state.session]);
 
   const refreshEvents = useCallback(async () => {
     const accessToken = requireAccessToken();
+    logger.debug('AppContext', 'Refreshing events list');
 
     try {
       const events = await deps.eventsRepository.listMyEvents(accessToken);
       dispatch({ type: 'set-events', events });
+      logger.info('AppContext', 'Events list refreshed', {
+        eventCount: events.length
+      });
       return events;
     } catch (error) {
       return handleProtectedError(error, EVENTS_LOAD_FAILED_MESSAGE);
@@ -719,6 +838,76 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     [deps.profileRepository, deps.profileService, handleProtectedError, localProfileSnapshot, requireAccessToken]
   );
 
+  const createEventForVenues = useCallback(async () => {
+    const accessToken = requireAccessToken();
+    logger.info('AppContext', 'Creating event for venues', {
+      draft: summarizeDraft(state.draft),
+      hasAccessToken: Boolean(accessToken)
+    });
+
+    try {
+      const createdEvent = await deps.eventsRepository.createEvent(accessToken, state.draft);
+      logger.info('AppContext', 'Event created for venues', {
+        eventId: createdEvent.id
+      });
+      dispatch({ type: 'set-pending-event-id', eventId: createdEvent.id });
+
+      const venues = extractVenuesFromEvent(createdEvent);
+
+      if (venues.length > 0) {
+        logger.info('AppContext', 'Venues extracted immediately from created event', {
+          eventId: createdEvent.id,
+          venueCount: venues.length
+        });
+        dispatch({ type: 'set-venues', venues });
+      }
+
+      return createdEvent.id;
+    } catch (error) {
+      logger.error('AppContext', 'Failed to create event for venues', {
+        draft: summarizeDraft(state.draft),
+        error
+      });
+      return handleProtectedError(error, EVENT_CREATE_FAILED_MESSAGE);
+    }
+  }, [deps.eventsRepository, handleProtectedError, requireAccessToken, state.draft]);
+
+  const pollEventVenues = useCallback(
+    async (eventId: string): Promise<{ ready: boolean; venues: Venue[] }> => {
+      const accessToken = requireAccessToken();
+      logger.debug('AppContext', 'Polling event venues', {
+        eventId,
+        hasAccessToken: Boolean(accessToken)
+      });
+
+      try {
+        const event = await deps.eventsRepository.getEventById(accessToken, eventId);
+
+        if (!hasEventLocations(event)) {
+          logger.debug('AppContext', 'Event venues are not ready yet', {
+            eventId
+          });
+          return { ready: false, venues: [] };
+        }
+
+        const venues = extractVenuesFromEvent(event);
+        logger.info('AppContext', 'Event venues are ready', {
+          eventId,
+          venueCount: venues.length
+        });
+        dispatch({ type: 'set-venues', venues });
+        return { ready: true, venues };
+      } catch (error) {
+        logger.error('AppContext', 'Failed to poll event venues', {
+          eventId,
+          error
+        });
+        return handleProtectedError(error, EVENT_DETAILS_FAILED_MESSAGE);
+      }
+    },
+    [deps.eventsRepository, handleProtectedError, requireAccessToken]
+  );
+
   const confirmBooking = useCallback(async () => {
     const selectedVenue = getSelectedVenue(state.venues, state.draft, state.selectedVenueId);
 
@@ -727,6 +916,28 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     }
 
     const accessToken = requireAccessToken();
+
+    if (state.pendingEventId) {
+      try {
+        const event = await deps.eventsRepository.getEventById(accessToken, state.pendingEventId);
+
+        try {
+          const events = await deps.eventsRepository.listMyEvents(accessToken);
+          dispatch({ type: 'set-events', events });
+        } catch (refreshError) {
+          if (isUnauthorizedBackendError(refreshError)) {
+            return handleProtectedError(refreshError, EVENTS_LOAD_FAILED_MESSAGE);
+          }
+
+          dispatch({ type: 'add-event', event });
+        }
+
+        dispatch({ type: 'reset-draft' });
+        return event;
+      } catch (error) {
+        return handleProtectedError(error, EVENT_CREATE_FAILED_MESSAGE);
+      }
+    }
 
     try {
       const createdEvent = await deps.eventsRepository.createEvent(accessToken, state.draft);
@@ -747,7 +958,7 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
     } catch (error) {
       return handleProtectedError(error, EVENT_CREATE_FAILED_MESSAGE);
     }
-  }, [deps.eventsRepository, handleProtectedError, requireAccessToken, state.draft, state.selectedVenueId, state.venues]);
+  }, [deps.eventsRepository, handleProtectedError, requireAccessToken, state.draft, state.pendingEventId, state.selectedVenueId, state.venues]);
 
   const getEventDetails = useCallback(
     async (eventId: string) => {
@@ -922,6 +1133,8 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
         toggleNotifications,
         updateAbout,
         saveProfileIdentity,
+        createEventForVenues,
+        pollEventVenues,
         confirmBooking,
         getEventDetails,
         getEventGuests,
@@ -951,6 +1164,8 @@ export function AppProvider({ children, initialState, dependencies, skipHydratio
       toggleNotifications,
       updateAbout,
       saveProfileIdentity,
+      createEventForVenues,
+      pollEventVenues,
       confirmBooking,
       getEventDetails,
       getEventGuests,

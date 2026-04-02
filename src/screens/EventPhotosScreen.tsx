@@ -10,7 +10,8 @@ import { useAppContext } from '../context/AppContext';
 import { UploadablePhoto } from '../domain/types';
 import { RootStackParamList } from '../navigation/types';
 import { theme } from '../theme';
-import { normalizePhotos, stringifyUnknown } from '../utils/backendData';
+import { normalizePhotos } from '../utils/backendData';
+import { logger } from '../utils/logger';
 
 type EventPhotosScreenProps = NativeStackScreenProps<RootStackParamList, 'EventPhotos'>;
 
@@ -27,11 +28,22 @@ export function EventPhotosScreen({ navigation, route }: EventPhotosScreenProps)
   const loadPhotos = useCallback(async () => {
     setError(null);
     setIsLoading(true);
+    logger.debug('EventPhotosScreen', 'Loading event photos', {
+      eventId: route.params.eventId
+    });
 
     try {
       const response = await actions.getPhotos(route.params.eventId);
       setPhotos(response);
+      logger.info('EventPhotosScreen', 'Event photos loaded', {
+        eventId: route.params.eventId,
+        photoCount: normalizePhotos(response).length
+      });
     } catch (nextError) {
+      logger.error('EventPhotosScreen', 'Failed to load event photos', {
+        eventId: route.params.eventId,
+        error: nextError
+      });
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить фотографии');
     } finally {
       setIsLoading(false);
@@ -44,12 +56,14 @@ export function EventPhotosScreen({ navigation, route }: EventPhotosScreenProps)
 
   const handlePickPhotos = async () => {
     setError(null);
+    logger.info('EventPhotosScreen', 'Selecting photos from gallery');
 
     try {
       if (Platform.OS !== 'web') {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (!permission.granted) {
+          logger.warn('EventPhotosScreen', 'Gallery permission denied');
           setError('Нужен доступ к галерее');
           return;
         }
@@ -63,6 +77,7 @@ export function EventPhotosScreen({ navigation, route }: EventPhotosScreenProps)
       });
 
       if (result.canceled) {
+        logger.debug('EventPhotosScreen', 'Photo selection canceled');
         return;
       }
 
@@ -73,25 +88,41 @@ export function EventPhotosScreen({ navigation, route }: EventPhotosScreenProps)
       }));
 
       setSelectedPhotos(nextPhotos);
+      logger.info('EventPhotosScreen', 'Photos selected', {
+        count: nextPhotos.length
+      });
     } catch (nextError) {
+      logger.error('EventPhotosScreen', 'Failed to select photos', nextError);
       setError(nextError instanceof Error ? nextError.message : 'Не удалось выбрать фотографии');
     }
   };
 
   const handleUploadPhotos = async () => {
     if (selectedPhotos.length === 0) {
+      logger.warn('EventPhotosScreen', 'Upload attempted without selected photos');
       setError('Сначала выберите фотографии');
       return;
     }
 
     setError(null);
     setIsUploading(true);
+    logger.info('EventPhotosScreen', 'Uploading selected photos', {
+      eventId: route.params.eventId,
+      count: selectedPhotos.length
+    });
 
     try {
       await actions.uploadPhotos(route.params.eventId, selectedPhotos.slice(0, 10));
       setSelectedPhotos([]);
       await loadPhotos();
+      logger.info('EventPhotosScreen', 'Photos uploaded successfully', {
+        eventId: route.params.eventId
+      });
     } catch (nextError) {
+      logger.error('EventPhotosScreen', 'Failed to upload photos', {
+        eventId: route.params.eventId,
+        error: nextError
+      });
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить фотографии');
     } finally {
       setIsUploading(false);
@@ -126,7 +157,7 @@ export function EventPhotosScreen({ navigation, route }: EventPhotosScreenProps)
                 ))}
               </View>
             ) : (
-              <Text style={styles.rawText}>{stringifyUnknown(photos)}</Text>
+              <Text style={styles.rawText}>Фотографии пока не загружены.</Text>
             )}
           </View>
         </>

@@ -26,7 +26,28 @@ export type EventDraft = {
 export type RequiredEventField = 'occasion' | 'city' | 'date' | 'budget' | 'guests';
 export type EventDraftErrors = Partial<Record<RequiredEventField, true>>;
 
-export type BackendEventVariant = Record<string, unknown>;
+export type BackendLocation = {
+  id: string;
+  title: string;
+  address: string;
+  aiComment: string;
+  aiScore: string;
+  contacts: string;
+  source: string;
+  sortOrder: number;
+  isRejected: boolean;
+  eventId: string;
+  variantId: string;
+};
+
+export type BackendVariant = {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  variantNumber: number;
+  locations: BackendLocation[];
+};
 
 export type BackendEvent = {
   id: string;
@@ -45,7 +66,7 @@ export type BackendEvent = {
   attendanceStatus: string;
   createdAt: string;
   updatedAt: string;
-  variants: BackendEventVariant[];
+  variants: BackendVariant[];
 };
 
 export type AttendanceStatus = 'pending' | 'confirmed' | 'declined';

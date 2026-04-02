@@ -1,6 +1,8 @@
 import {
   AttendanceStatus,
   BackendEvent,
+  BackendLocation,
+  BackendVariant,
   EventDraft,
   EventGuest,
   EventGuestStats,
@@ -10,9 +12,41 @@ import {
   WishlistResponse
 } from '../domain/types';
 import { request, requestFormData } from '../services/backendClient';
+import { logger } from '../utils/logger';
 
 type SuccessEnvelope<T> = {
   data: T;
+};
+
+type BackendLocationResponse = {
+  address?: string;
+  ai_comment?: string;
+  ai_score?: string;
+  contacts?: string;
+  created_at?: string;
+  event_id?: string;
+  id?: string;
+  is_rejected?: boolean;
+  rejected_at?: string;
+  sort_order?: number;
+  source?: string;
+  title?: string;
+  updated_at?: string;
+  variant_id?: string;
+};
+
+type BackendVariantResponse = {
+  created_at?: string;
+  description?: string;
+  event_id?: string;
+  generation_error?: string;
+  id?: string;
+  llm_request_id?: string;
+  locations?: BackendLocationResponse[];
+  status?: string;
+  title?: string;
+  updated_at?: string;
+  variant_number?: number;
 };
 
 type BackendEventResponse = {
@@ -32,7 +66,7 @@ type BackendEventResponse = {
   status?: string;
   title?: string;
   updated_at?: string;
-  variants?: Record<string, unknown>[];
+  variants?: BackendVariantResponse[];
 };
 
 type BackendEventGuestResponse = {
@@ -73,6 +107,35 @@ function unwrapData<T>(payload: T | SuccessEnvelope<T>): T {
   return payload as T;
 }
 
+function mapBackendLocation(location: BackendLocationResponse): BackendLocation {
+  return {
+    id: String(location.id ?? ''),
+    title: location.title?.trim() || '',
+    address: location.address?.trim() || '',
+    aiComment: location.ai_comment?.trim() || '',
+    aiScore: location.ai_score?.trim() || '',
+    contacts: location.contacts?.trim() || '',
+    source: location.source?.trim() || '',
+    sortOrder: Number(location.sort_order ?? 0),
+    isRejected: Boolean(location.is_rejected),
+    eventId: String(location.event_id ?? ''),
+    variantId: String(location.variant_id ?? '')
+  };
+}
+
+function mapBackendVariant(variant: BackendVariantResponse): BackendVariant {
+  const locations = Array.isArray(variant.locations) ? variant.locations.map(mapBackendLocation) : [];
+
+  return {
+    id: String(variant.id ?? ''),
+    title: variant.title?.trim() || '',
+    description: variant.description?.trim() || '',
+    status: variant.status?.trim() || '',
+    variantNumber: Number(variant.variant_number ?? 0),
+    locations
+  };
+}
+
 function mapBackendEvent(event: BackendEventResponse): BackendEvent {
   return {
     id: String(event.id ?? ''),
@@ -91,7 +154,7 @@ function mapBackendEvent(event: BackendEventResponse): BackendEvent {
     attendanceStatus: event.attendance_status?.trim() || '',
     createdAt: event.created_at?.trim() || '',
     updatedAt: event.updated_at?.trim() || '',
-    variants: Array.isArray(event.variants) ? event.variants : []
+    variants: Array.isArray(event.variants) ? event.variants.map(mapBackendVariant) : []
   };
 }
 
@@ -185,17 +248,39 @@ export function createEventsRepository(): EventsRepository {
     },
 
     async createEvent(accessToken, draft) {
+      const energy = [draft.occasion, draft.placeType, draft.location, draft.wishes]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(', ') || 'Любой';
+
+      let formattedDate = draft.date.trim();
+      const dateParts = formattedDate.split('-');
+      if (dateParts.length === 3) {
+        formattedDate = `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`;
+      }
+
+      const requestBody = {
+        city: draft.city.trim(),
+        budget: draft.budget.trim(),
+        date: formattedDate,
+        time: '14:00',
+        scale: Number.parseInt(draft.guests, 10) || 0,
+        energy
+      };
+
+      logger.debug('EventsRepository', 'Create event payload prepared', {
+        hasAccessToken: Boolean(accessToken),
+        body: requestBody
+      });
+
       const payload = await request<SuccessEnvelope<BackendEventResponse>>('/events', {
         method: 'POST',
         accessToken,
-        body: {
-          city: draft.city.trim(),
-          budget: draft.budget.trim(),
-          date: draft.date.trim(),
-          time: '14:00',
-          scale: Number.parseInt(draft.guests, 10) || 0,
-          energy: ''
-        }
+        body: requestBody
+      });
+
+      logger.info('EventsRepository', 'Event created', {
+        eventId: unwrapData(payload).id ?? null
       });
 
       return mapBackendEvent(unwrapData(payload));

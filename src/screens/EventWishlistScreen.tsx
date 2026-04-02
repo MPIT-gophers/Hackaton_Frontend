@@ -10,7 +10,8 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { useAppContext } from '../context/AppContext';
 import { RootStackParamList } from '../navigation/types';
 import { theme } from '../theme';
-import { normalizeWishlistItems, stringifyUnknown } from '../utils/backendData';
+import { normalizeWishlistItems } from '../utils/backendData';
+import { logger } from '../utils/logger';
 
 type EventWishlistScreenProps = NativeStackScreenProps<RootStackParamList, 'EventWishlist'>;
 
@@ -31,11 +32,22 @@ export function EventWishlistScreen({ navigation, route }: EventWishlistScreenPr
   const loadWishlist = useCallback(async () => {
     setError(null);
     setIsLoading(true);
+    logger.debug('EventWishlistScreen', 'Loading wishlist', {
+      eventId: route.params.eventId
+    });
 
     try {
       const response = await actions.getWishlist(route.params.eventId);
       setWishlist(response);
+      logger.info('EventWishlistScreen', 'Wishlist loaded', {
+        eventId: route.params.eventId,
+        itemCount: normalizeWishlistItems(response).length
+      });
     } catch (nextError) {
+      logger.error('EventWishlistScreen', 'Failed to load wishlist', {
+        eventId: route.params.eventId,
+        error: nextError
+      });
       setError(nextError instanceof Error ? nextError.message : 'Не удалось загрузить wishlist');
     } finally {
       setIsLoading(false);
@@ -49,12 +61,23 @@ export function EventWishlistScreen({ navigation, route }: EventWishlistScreenPr
   const handleParse = async () => {
     setIsSubmitting(true);
     setError(null);
+    logger.info('EventWishlistScreen', 'Parsing wishlist text', {
+      eventId: route.params.eventId,
+      textLength: parseText.trim().length
+    });
 
     try {
       const response = await actions.parseWishlistText(route.params.eventId, parseText.trim());
       setParseResult(response);
       await loadWishlist();
+      logger.info('EventWishlistScreen', 'Wishlist text parsed successfully', {
+        eventId: route.params.eventId
+      });
     } catch (nextError) {
+      logger.error('EventWishlistScreen', 'Failed to parse wishlist text', {
+        eventId: route.params.eventId,
+        error: nextError
+      });
       setError(nextError instanceof Error ? nextError.message : 'Не удалось разобрать wishlist');
     } finally {
       setIsSubmitting(false);
@@ -64,12 +87,23 @@ export function EventWishlistScreen({ navigation, route }: EventWishlistScreenPr
   const handleIdea = async () => {
     setIsSubmitting(true);
     setError(null);
+    logger.info('EventWishlistScreen', 'Submitting wishlist idea', {
+      eventId: route.params.eventId,
+      textLength: ideaText.trim().length
+    });
 
     try {
       const response = await actions.submitWishlistIdea(route.params.eventId, ideaText.trim());
       setIdeaResult(response);
       await loadWishlist();
+      logger.info('EventWishlistScreen', 'Wishlist idea submitted successfully', {
+        eventId: route.params.eventId
+      });
     } catch (nextError) {
+      logger.error('EventWishlistScreen', 'Failed to submit wishlist idea', {
+        eventId: route.params.eventId,
+        error: nextError
+      });
       setError(nextError instanceof Error ? nextError.message : 'Не удалось отправить идею');
     } finally {
       setIsSubmitting(false);
@@ -79,11 +113,24 @@ export function EventWishlistScreen({ navigation, route }: EventWishlistScreenPr
   const handleBook = async (itemId: string) => {
     setIsSubmitting(true);
     setError(null);
+    logger.info('EventWishlistScreen', 'Booking wishlist item', {
+      eventId: route.params.eventId,
+      itemId
+    });
 
     try {
       await actions.bookWishlistItem(route.params.eventId, itemId);
       await loadWishlist();
+      logger.info('EventWishlistScreen', 'Wishlist item booked', {
+        eventId: route.params.eventId,
+        itemId
+      });
     } catch (nextError) {
+      logger.error('EventWishlistScreen', 'Failed to book wishlist item', {
+        eventId: route.params.eventId,
+        itemId,
+        error: nextError
+      });
       setError(nextError instanceof Error ? nextError.message : 'Не удалось забронировать item');
     } finally {
       setIsSubmitting(false);
@@ -95,17 +142,37 @@ export function EventWishlistScreen({ navigation, route }: EventWishlistScreenPr
     const amount = Number(rawAmount);
 
     if (!Number.isFinite(amount) || amount <= 0) {
+      logger.warn('EventWishlistScreen', 'Invalid funding amount entered', {
+        eventId: route.params.eventId,
+        itemId
+      });
       setError('Введите корректную сумму');
       return;
     }
 
     setIsSubmitting(true);
     setError(null);
+    logger.info('EventWishlistScreen', 'Funding wishlist item', {
+      eventId: route.params.eventId,
+      itemId,
+      amount
+    });
 
     try {
       await actions.fundWishlistItem(route.params.eventId, itemId, amount);
       await loadWishlist();
+      logger.info('EventWishlistScreen', 'Wishlist item funded', {
+        eventId: route.params.eventId,
+        itemId,
+        amount
+      });
     } catch (nextError) {
+      logger.error('EventWishlistScreen', 'Failed to fund wishlist item', {
+        eventId: route.params.eventId,
+        itemId,
+        amount,
+        error: nextError
+      });
       setError(nextError instanceof Error ? nextError.message : 'Не удалось отправить финансирование');
     } finally {
       setIsSubmitting(false);
@@ -150,7 +217,7 @@ export function EventWishlistScreen({ navigation, route }: EventWishlistScreenPr
                 </View>
               ))
             ) : (
-              <Text style={styles.rawText}>{stringifyUnknown(wishlist)}</Text>
+              <Text style={styles.rawText}>Список подарков пока пуст.</Text>
             )}
           </View>
 
@@ -158,14 +225,14 @@ export function EventWishlistScreen({ navigation, route }: EventWishlistScreenPr
             <Text style={styles.sectionTitle}>Разобрать свободный текст</Text>
             <RoundedTextArea onChangeText={setParseText} placeholder="Например: хочу PS5, Lego, без духов" testID="wishlist-parse-input" value={parseText} />
             <PrimaryButton loading={isSubmitting} onPress={handleParse} style={styles.actionButton} testID="wishlist-parse-button" title="Разобрать" />
-            {parseResult ? <Text style={styles.rawText}>{stringifyUnknown(parseResult)}</Text> : null}
+            {parseResult ? <Text style={styles.rawText}>Текст успешно обработан.</Text> : null}
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Предложить идею</Text>
             <RoundedTextArea onChangeText={setIdeaText} placeholder="Текст идеи подарка" testID="wishlist-idea-input" value={ideaText} />
             <PrimaryButton loading={isSubmitting} onPress={handleIdea} style={styles.actionButton} testID="wishlist-idea-button" title="Отправить идею" />
-            {ideaResult ? <Text style={styles.rawText}>{stringifyUnknown(ideaResult)}</Text> : null}
+            {ideaResult ? <Text style={styles.rawText}>Идея успешно отправлена.</Text> : null}
           </View>
         </>
       )}

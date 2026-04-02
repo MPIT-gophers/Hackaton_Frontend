@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -14,12 +15,31 @@ type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const { state, actions } = useAppContext();
+  const hasSeenFocusRef = useRef(false);
+  const { refreshEvents, startEventDraft } = actions;
 
   const openProfile = () => navigation.navigate('Profile');
   const openForm = () => {
-    actions.startEventDraft();
+    startEventDraft();
     navigation.navigate('EventForm');
   };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (!hasSeenFocusRef.current) {
+        hasSeenFocusRef.current = true;
+        return;
+      }
+
+      if (!state.session.isAuthenticated) {
+        return;
+      }
+
+      void refreshEvents().catch(() => {});
+    });
+
+    return unsubscribe;
+  }, [navigation, refreshEvents, state.session.isAuthenticated]);
 
   return (
     <ScreenContainer>
